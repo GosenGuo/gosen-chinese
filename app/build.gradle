@@ -1,0 +1,57 @@
+plugins { id 'com.android.application' }
+def releaseVersion = new groovy.json.JsonSlurper().parse(rootProject.file('release/version.json'))
+def signingValue = { String name -> System.getenv(name) ?: '' }
+def hasReleaseSigning = ['ANDROID_KEYSTORE_PATH', 'ANDROID_KEYSTORE_PASSWORD', 'ANDROID_KEY_ALIAS', 'ANDROID_KEY_PASSWORD'].every { signingValue(it) }
+android {
+    namespace 'com.gosen.chinese'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'com.gosen.chinese'
+        minSdk 26
+        targetSdk 35
+        versionCode Integer.parseInt(project.findProperty('VERSION_CODE') ?: releaseVersion.versionCode.toString())
+        versionName project.findProperty('VERSION_NAME') ?: releaseVersion.versionName
+        buildConfigField 'String', 'UPDATE_MANIFEST_URL', '"' + (project.findProperty('UPDATE_MANIFEST_URL') ?: 'https://raw.githubusercontent.com/GosenGuo/gosen-chinese/main/release/app-update.json') + '"'
+    }
+    buildFeatures { buildConfig true }
+    signingConfigs {
+        stableRelease {
+            if (hasReleaseSigning) {
+                storeFile file(signingValue('ANDROID_KEYSTORE_PATH'))
+                storePassword signingValue('ANDROID_KEYSTORE_PASSWORD')
+                keyAlias signingValue('ANDROID_KEY_ALIAS')
+                keyPassword signingValue('ANDROID_KEY_PASSWORD')
+            }
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.stableRelease
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    testOptions {
+        unitTests.includeAndroidResources = true
+        unitTests.all {
+            maxHeapSize = '2g'
+            testLogging.exceptionFormat = 'full'
+        }
+    }
+}
+def verifyReleaseSigning = tasks.register('verifyReleaseSigning') {
+    doLast {
+        if (!hasReleaseSigning) throw new GradleException('Release signing requires all four ANDROID_KEYSTORE_* / ANDROID_KEY_* environment values. No debug signing fallback is permitted.')
+        if (!file(signingValue('ANDROID_KEYSTORE_PATH')).isFile()) throw new GradleException('Release keystore file does not exist.')
+    }
+}
+tasks.configureEach { task ->
+    if (task.name == 'preReleaseBuild') task.dependsOn(verifyReleaseSigning)
+}
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.robolectric:robolectric:4.14.1'
+}

@@ -1,0 +1,91 @@
+name: Generate content draft
+
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: Content task (draft only)
+        required: true
+        default: generate-essay
+        type: choice
+        options:
+          - generate-essay
+          - enrich-classic
+          - smoke
+      classic_id:
+        description: Existing classics.json ID (required for enrich-classic)
+        required: false
+        type: string
+      topic:
+        description: Topic for a self-written essay prompt and AI example
+        required: false
+        default: 学习、独立思考与负责任地使用工具
+        type: string
+      model:
+        description: PackyAPI Responses model allowed by this key
+        required: true
+        default: gpt-6.1-sol
+        type: string
+      max_tokens:
+        description: Maximum output token budget (no automatic retries)
+        required: true
+        default: '8192'
+        type: choice
+        options:
+          - '4096'
+          - '8192'
+          - '16384'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: content-draft
+  cancel-in-progress: false
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check offline client and validation tests
+        run: node --test scripts/test-packy-client.mjs
+      - name: Generate one draft
+        env:
+          PACKY_API_KEY: ${{ secrets.PACKY_API_KEY }}
+          PACKY_API_BASE_URL: https://www.packyapi.ai
+          PACKY_API_PROTOCOL: responses
+          PACKY_API_MODEL: ${{ inputs.model }}
+          CONTENT_TASK: ${{ inputs.task }}
+          CLASSIC_ID: ${{ inputs.classic_id }}
+          ESSAY_TOPIC: ${{ inputs.topic }}
+          OUTPUT_TOKENS: ${{ inputs.max_tokens }}
+        shell: bash
+        run: |
+          case "$CONTENT_TASK" in
+            smoke)
+              node scripts/generate-content.mjs smoke
+              ;;
+            enrich-classic)
+              node scripts/generate-content.mjs enrich-classic --id "$CLASSIC_ID" --max-tokens "$OUTPUT_TOKENS"
+              ;;
+            generate-essay)
+              node scripts/generate-content.mjs generate-essay --topic "$ESSAY_TOPIC" --max-tokens "$OUTPUT_TOKENS"
+              ;;
+            *)
+              echo "Unsupported content task"
+              exit 1
+              ;;
+          esac
+      - name: Upload review draft
+        if: ${{ success() && inputs.task != 'smoke' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: content-draft-${{ github.run_id }}
+          path: generated/*.json
+          if-no-files-found: error
+          retention-days: 30

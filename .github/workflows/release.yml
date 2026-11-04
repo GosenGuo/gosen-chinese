@@ -1,0 +1,121 @@
+name: Signed Android release
+
+on:
+  push:
+    branches: [main]
+    paths: [release/version.json]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: signed-android-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Restore stable release signing identity
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64"
+          test -n "$ANDROID_KEYSTORE_PASSWORD"
+          test -n "$ANDROID_KEY_ALIAS"
+          test -n "$ANDROID_KEY_PASSWORD"
+          keystore_path="$RUNNER_TEMP/gosen-chinese-release.jks"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$keystore_path"
+          chmod 600 "$keystore_path"
+          echo "ANDROID_KEYSTORE_PATH=$keystore_path" >> "$GITHUB_ENV"
+      - name: Validate content and release metadata
+        run: |
+          node scripts/check-classics.mjs
+          node scripts/validate-practice-content.mjs
+          node --test scripts/write-update-manifest.test.mjs
+      - name: Test and build signed release
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp gradle/wrapper/gradle-wrapper.properties "$RUNNER_TEMP/wrapper-original.properties"
+          cp gradlew "$RUNNER_TEMP/gradlew-original"
+          trap 'cp "$RUNNER_TEMP/wrapper-original.properties" gradle/wrapper/gradle-wrapper.properties; cp "$RUNNER_TEMP/gradlew-original" gradlew' EXIT
+          node -e 'const fs=require("fs"); const file="gradle/wrapper/gradle-wrapper.properties"; fs.writeFileSync(file,fs.readFileSync(file,"utf8").replace(/^distributionUrl=.*$/m,"distributionUrl=https://services.gradle.org/distributions/gradle-8.9-bin.zip"));'
+          node -e 'const fs=require("fs"); fs.writeFileSync("gradlew",fs.readFileSync("gradlew","utf8").replace(/\r\n/g,"\n"));'
+          bash ./gradlew testDebugUnitTest assembleRelease --no-daemon
+      - name: Verify signing and prepare manifest
+        id: release_info
+        shell: bash
+        run: |
+          set -euo pipefail
+          version_name=$(node -p 'JSON.parse(require("fs").readFileSync("release/version.json","utf8")).versionName')
+          apk_name="GosenChinese-${version_name}.apk"
+          mkdir -p release-assets
+          cp app/build/outputs/apk/release/app-release.apk "release-assets/$apk_name"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "release-assets/$apk_name" > "$RUNNER_TEMP/certificate.txt"
+          certificate_sha=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$RUNNER_TEMP/certificate.txt" | tr '[:upper:]' '[:lower:]')
+          test -n "$certificate_sha"
+          expected_certificate_sha=$(node -p 'require("fs").readFileSync("release/signing-certificate.sha256","utf8").trim().replace(/:/g,"").toLowerCase()')
+          if [[ ! "$expected_certificate_sha" =~ ^[0-9a-f]{64}$ ]] || [[ "$certificate_sha" != "$expected_certificate_sha" ]]; then
+            echo 'Release signing certificate does not match release/signing-certificate.sha256' >&2
+            exit 1
+          fi
+          node scripts/write-update-manifest.mjs --apk "release-assets/$apk_name" --certificate-sha256 "$certificate_sha"
+          echo "version_name=$version_name" >> "$GITHUB_OUTPUT"
+          echo "apk_name=$apk_name" >> "$GITHUB_OUTPUT"
+          node -p 'JSON.parse(require("fs").readFileSync("release/version.json","utf8")).releaseNotes || "拾文更新"' > release-assets/notes.txt
+      - name: Publish immutable GitHub release assets
+        env:
+          VERSION_NAME: ${{ steps.release_info.outputs.version_name }}
+          APK_NAME: ${{ steps.release_info.outputs.apk_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="app-v$VERSION_NAME"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            mkdir -p "$RUNNER_TEMP/published"
+            gh release download "$tag" --pattern "$APK_NAME" --dir "$RUNNER_TEMP/published"
+            cmp "release-assets/$APK_NAME" "$RUNNER_TEMP/published/$APK_NAME"
+          else
+            gh release create "$tag" "release-assets/$APK_NAME" "release-assets/$APK_NAME.sha256" --target "$GITHUB_SHA" --title "拾文 $VERSION_NAME" --notes-file release-assets/notes.txt
+          fi
+      - name: Commit published update manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add release/app-update.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'chore: publish Android update manifest [skip ci]'
+          for attempt in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then exit 0; fi
+          done
+          exit 1
+      - name: Remove ephemeral signing material
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/gosen-chinese-release.jks"

@@ -1,0 +1,14 @@
+.gradle/
+**/build/
+local.properties
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.dpapi
+*.local.json
+node_modules/
+generated/
+release-assets/
+qa/
+.idea/
