@@ -603,12 +603,616 @@
       "module": "classical",
       "batchId": "42038015527",
       "targetCount": 30,
-      "status": "reserved",
+      "status": "complete",
       "reservedAt": "2026-11-05T13:41:57.196Z",
       "maximumCalls": 60,
       "maximumOutputTokensPerCall": 8192,
-      "attempts": [],
-      "addedIds": []
+      "attempts": [
+        {
+          "index": 0,
+          "status": "published",
+          "attemptedAt": "2026-11-05T13:41:58.777Z",
+          "metadata": {
+            "provider": "PackyAPI",
+            "model": "gpt-6.1-sol",
+            "generatedAt": "2026-11-05T13:43:34.161Z",
+            "tokenUsage": {
+              "inputTokens": 647,
+              "outputTokens": 4621,
+              "totalTokens": 5268
+            },
+            "responseId": "resp_0da37e0fdc4950b2016aec87a7ec3887d18f25f95670179134"
+          },
+          "contentId": "refill-classical-20261105-42038015527-01"
+        },
+        {
+          "index": 1,
+          "status": "failed",
+          "attemptedAt": "2026-11-05T13:41:58.906Z",
+          "error": "Temporary capacity limit. Please try again in 2s."
+        },
+        {
+          "index": 2,
+          "status": "published",
+          "attemptedAt": "2026-11-05T13:42:05.304Z",
+          "metadata": {
+            "provider": "PackyAPI",
+            "model": "gpt-6.1-sol",
+            "generatedAt": "2026-11-05T13:43:48.982Z",
+            "tokenUsage": {
+              "inputTokens": 555,
+              "outputTokens": 3729,
+              "totalTokens": 4284
+            },
+            "responseId": "resp_0c33ef27bbb1c401016aec87adf69c87d0a0ed82f868c72c95"
+          },
+          "contentId": "refill-classical-20261105-42038015527-03"
+        },
+        {
+          "index": 3,
+          "status": "published",
+          "attemptedAt": "2026-11-05T13:43:34.231Z",
+          "metadata": {
+            "provider": "PackyAPI",
+            "model": "gpt-6.1-sol",
+            "generatedAt": "2026-11-05T13:45:13.177Z",
+            "tokenUsage": {
+              "inputTokens": 547,
+              "outputTokens": 3841,
+              "totalTokens": 4388
+            },
+            "responseId": "resp_05ad3713e4428d41016aec88071e7887d0a5e3b6618a023dbc"
+          },
+          "contentId": "refill-classical-20261105-42038015527-04"
+        },
+        {
+          "index": 4,
+          "status": "published",
+          "attemptedAt": "2026-11-05T13:43:49.044Z",
+          "metadata": {
+            "provider": "PackyAPI",
+            "model": "gpt-6.1-sol",
+            "generatedAt": "2026-11-05T13:45:18.105Z",
+            "tokenUsage": {
+              "inputTokens": 542,
+              "outputTokens": 3605,
+              "totalTokens": 4147
+            },
+            "responseId": "resp_0a86831883c76165016aec8815c41c87d19aa7b50e8174d134"
+          },
+          "contentId": "refill-classical-20261105-42038015527-05"
+        },
+        {
+          "index": 5,
+          "status": "failed",
+          "attemptedAt": "2026-11-05T13:45:13.233Z",
+          "metadata": {
+            "provider": "PackyAPI",
+            "model": "gpt-6.1-sol",
+            "generatedAt": "2026-11-05T13:47:28.602Z",
+            "tokenUsage": {
+              "inputTokens": 608,
+              "outputTokens": 3904,
+              "totalTokens": 4512
+            },
+            "responseId": "resp_03cb9f2a102a9c15016aec886aecd887d0a50d82a6cf545581"
+          },
+          "error": "Classical sentence translations must cover every original character"
+        },
+        {
+          "index": 6,
+          "status": "published",
+          "attemptedAt": "2026-11-05T13:45:18.162Z",
+          "metadata": {
+            "provider": "PackyAPI",
+            "model": "gpt-6.1-sol",
+            "generatedAt": "2026-11-05T13:47:09.068Z",
+            "tokenUsage": {
+              "inputTokens": 543,
+              "outputTokens": 4417,
+              "totalTokens": 4960
+            },
+            "responseId": "resp_071eed1ef5527607016aec886ee25087d2b85989ecb89ecd4b"
+          },
+          "contentId": "refill-classical-20261105-42038015527-07"
+        },
+        {
+          "index": 7,
+          "status": "published",
+          "attemptedAt": "2026-11-05T13:47:09.128Z",
+          "metadata": {
+            "provider": "PackyAPI",
+            "model": "gpt-6.1-sol",
+            "generatedAt": "2026-11-05T13:48:23.692Z",
+            "tokenUsage": {
+              "inputTokens": 541,
+              "outputTokens": 3551,
+              "totalTokens": 4092
+            },
+            "responseId": "resp_0f8b4a6c654d4282016aec88ddbbcc87d089973158c412184c"
+          },
+          "contentId": "refill-classical-20261105-42038015527-08"
+        },
+        {
+          "index": 8,
+          "status": "published",
+          "attemptedAt": "2026-11-05T13:47:28.605Z",
+          "metadata": {
+            "provider": "PackyAPI",
+            "model": "gpt-6.1-sol",
+            "generatedAt": "2026-11-05T13:49:11.868Z",
+            "tokenUsage": {
+              "inputTokens": 534,
+              "outputTokens": 3922,
+              "totalTokens": 4456
+            },
+            "responseId": "resp_09801bd707708957016aec88f16b1c87d0b9aae3ac11882795"
+          },
+          "contentId": "refill-classical-20261105-42038015527-09"
+        },
+        {
+          "index": 9,
+          "status": "published",
+          "attemptedAt": "2026-11-05T13:48:23.745Z",
+          "metadata": {
+            "provider": "PackyAPI",
+            "model": "gpt-6.1-sol",
+            "generatedAt": "2026-11-05T13:49:51.279Z",
+            "tokenUsage": {
+              "inputTokens": 554,
+              "outputTokens": 4246,
+              "totalTokens": 4800
+            },
+            "responseId": "resp_0ad383570a075b9b016aec89289c6c87d19354fb684b50aab1"
+          },
+          "contentId": "refill-classical-20261105-42038015527-10"
+        },
+        {
+          "index": 10,
+          "status": "published",
+          "attemptedAt": "2026-11-05T13:49:11.926Z",
+          "metadata": {
+            "provider": "PackyAPI",
+            "model": "gpt-6.1-sol",
+            "generatedAt": "2026-11-05T13:50:41.851Z",
+            "tokenUsage": {
+              "inputTokens": 554,
+              "outputTokens": 4215,
+              "totalTokens": 4769
+            },
+            "responseId": "resp_013248980f39044e016aec8959132887d28424c46885d1ccbd"
+          },
+          "contentId": "refill-classical-20261105-42038015527-11"
+        },
+        {
+          "index": 11,
+          "status": "published",
+          "attemptedAt": "2026-11-05T13:49:51.341Z",
+          "metadata": {
+            "provider": "PackyAPI",
+            "model": "gpt-6.1-sol",
+            "generatedAt": "2026-11-05T13:51:47.219Z",
+            "tokenUsage": {
+              "inputTokens": 559,
+              "outputTokens": 3141,
+              "totalTokens": 3700
+            },
+            "responseId": "resp_092f94f44396541c016aec898084d887d08163f8145694e8d6"
+          },
+          "contentId": "refill-classical-20261105-42038015527-12"
+        },
+        {
+          "index": 12,
+          "status": "published",
+          "attemptedAt": "2026-11-05T13:50:41.905Z",
+          "metadata": {
+            "provider": "PackyAPI",
+            "model": "gpt-6.1-sol",
+            "generatedAt": "2026-11-05T13:52:16.698Z",
+            "tokenUsage": {
+              "inputTokens": 603,
+              "outputTokens": 4409,
+              "totalTokens": 5012
+            },
+            "responseId": "resp_097f823cff53afc2016aec89b2d84c87d1be40c90e4f1e2a73"
+          },
+          "contentId": "refill-classical-20261105-42038015527-13"
+        },
+        {
+          "index": 13,
+          "status": "published",
+          "attemptedAt": "2026-11-05T13:51:47.277Z",
+          "metadata": {
+            "provider": "PackyAPI",
+            "model": "gpt-6.1-sol",
+            "generatedAt": "2026-11-05T13:53:45.724Z",
+            "tokenUsage": {
+              "inputTokens": 623,
+              "outputTokens": 5778,
+              "totalTokens": 6401
+            },
+            "responseId": "resp_01059fc001512abd016aec89f4788c87d185988cd338472784"
+          },
+          "contentId": "refill-classical-20261105-42038015527-14"
+        },
+        {
+          "index": 14,
+          "status": "published",
+          "attemptedAt": "2026-11-05T13:52:16.759Z",
+          "metadata": {
+            "provider": "PackyAPI",
+            "model": "gpt-6.1-sol",
+            "generatedAt": "2026-11-05T13:54:13.639Z",
+            "tokenUsage": {
+              "inputTokens": 572,
+              "outputTokens": 4145,
+              "totalTokens": 4717
+            },
+            "responseId": "resp_0e958c28d688c06a016aec8a118a6c87d0a25e880db253632b"
+          },
+          "contentId": "refill-classical-20261105-42038015527-15"
+        },
+        {
+          "index": 15,
+          "status": "published",
+          "attemptedAt": "2026-11-05T13:53:45.778Z",
+          "metadata": {
+            "provider": "PackyAPI",
+            "model": "gpt-6.1-sol",
+            "generatedAt": "2026-11-05T13:55:20.366Z",
+            "tokenUsage": {
+              "inputTokens": 567,
+              "outputTokens": 4626,
+              "totalTokens": 5193
+            },
+            "responseId": "resp_076ef90dcc1f34ea016aec8a6a9f1c87d19b4cbbcb57ed74eb"
+          },
+          "contentId": "refill-classical-20261105-42038015527-16"
+        },
+        {
+          "index": 16,
+          "status": "published",
+          "attemptedAt": "2026-11-05T13:54:13.698Z",
+          "metadata": {
+            "provider": "PackyAPI",
+            "model": "gpt-6.1-sol",
+            "generatedAt": "2026-11-05T13:55:40.138Z",
+            "tokenUsage": {
+              "inputTokens": 556,
+              "outputTokens": 4222,
+              "totalTokens": 4778
+            },
+            "responseId": "resp_073cfb5c89159644016aec8a8661d087d2af944f49874b43e1"
+          },
+          "contentId": "refill-classical-20261105-42038015527-17"
+        },
+        {
+          "index": 17,
+          "status": "published",
+          "attemptedAt": "2026-11-05T13:55:20.425Z",
+          "metadata": {
+            "provider": "PackyAPI",
+            "model": "gpt-6.1-sol",
+            "generatedAt": "2026-11-05T13:57:25.867Z",
+            "tokenUsage": {
+              "inputTokens": 574,
+              "outputTokens": 4647,
+              "totalTokens": 5221
+            },
+            "responseId": "resp_0d68288ae7cf4cb4016aec8ac951b087d1ab9708bdd32ff9dd"
+          },
+          "contentId": "refill-classical-20261105-42038015527-18"
+        },
+        {
+          "index": 18,
+          "status": "published",
+          "attemptedAt": "2026-11-05T13:55:40.201Z",
+          "metadata": {
+            "provider": "PackyAPI",
+            "model": "gpt-6.1-sol",
+            "generatedAt": "2026-11-05T13:57:22.686Z",
+            "tokenUsage": {
+              "inputTokens": 541,
+              "outputTokens": 4627,
+              "totalTokens": 5168
+            },
+            "responseId": "resp_0abf27e7ce1e0d80016aec8ae48e1887d18a193f33d395dd53"
+          },
+          "contentId": "refill-classical-20261105-42038015527-19"
+        },
+        {
+          "index": 19,
+          "status": "published",
+          "attemptedAt": "2026-11-05T13:57:22.746Z",
+          "metadata": {
+            "provider": "PackyAPI",
+            "model": "gpt-6.1-sol",
+            "generatedAt": "2026-11-05T13:59:01.249Z",
+            "tokenUsage": {
+              "inputTokens": 550,
+              "outputTokens": 4118,
+              "totalTokens": 4668
+            },
+            "responseId": "resp_093e3f63462b9e2c016aec8b4388c887d0b134b9d0172ba438"
+          },
+          "contentId": "refill-classical-20261105-42038015527-20"
+        },
+        {
+          "index": 20,
+          "status": "published",
+          "attemptedAt": "2026-11-05T13:57:25.941Z",
+          "metadata": {
+            "provider": "PackyAPI",
+            "model": "gpt-6.1-sol",
+            "generatedAt": "2026-11-05T13:59:15.834Z",
+            "tokenUsage": {
+              "inputTokens": 676,
+              "outputTokens": 4954,
+              "totalTokens": 5630
+            },
+            "responseId": "resp_0e67ed256c1f1fe9016aec8b46ed1887d2bab0923f62be099d"
+          },
+          "contentId": "refill-classical-20261105-42038015527-21"
+        },
+        {
+          "index": 21,
+          "status": "published",
+          "attemptedAt": "2026-11-05T13:59:01.308Z",
+          "metadata": {
+            "provider": "PackyAPI",
+            "model": "gpt-6.1-sol",
+            "generatedAt": "2026-11-05T14:00:38.207Z",
+            "tokenUsage": {
+              "inputTokens": 536,
+              "outputTokens": 4251,
+              "totalTokens": 4787
+            },
+            "responseId": "resp_0404f4b1dc9cd445016aec8ba65e2487d1a394884448d9992d"
+          },
+          "contentId": "refill-classical-20261105-42038015527-22"
+        },
+        {
+          "index": 22,
+          "status": "published",
+          "attemptedAt": "2026-11-05T13:59:15.894Z",
+          "metadata": {
+            "provider": "PackyAPI",
+            "model": "gpt-6.1-sol",
+            "generatedAt": "2026-11-05T14:00:41.542Z",
+            "tokenUsage": {
+              "inputTokens": 605,
+              "outputTokens": 4182,
+              "totalTokens": 4787
+            },
+            "responseId": "resp_0370a854ca48807a016aec8bb4a4c487d08c2f03b187709c85"
+          },
+          "contentId": "refill-classical-20261105-42038015527-23"
+        },
+        {
+          "index": 23,
+          "status": "failed",
+          "attemptedAt": "2026-11-05T14:00:38.279Z",
+          "metadata": {
+            "provider": "PackyAPI",
+            "model": "gpt-6.1-sol",
+            "generatedAt": "2026-11-05T14:02:46.612Z",
+            "tokenUsage": {
+              "inputTokens": 542,
+              "outputTokens": 3689,
+              "totalTokens": 4231
+            },
+            "responseId": "resp_06549b8a86828a77016aec8c075a5087d0af939083608ab9d4"
+          },
+          "error": "注释引用在原文中不存在：胼胝"
+        },
+        {
+          "index": 24,
+          "status": "published",
+          "attemptedAt": "2026-11-05T14:00:41.614Z",
+          "metadata": {
+            "provider": "PackyAPI",
+            "model": "gpt-6.1-sol",
+            "generatedAt": "2026-11-05T14:02:24.786Z",
+            "tokenUsage": {
+              "inputTokens": 612,
+              "outputTokens": 4798,
+              "totalTokens": 5410
+            },
+            "responseId": "resp_067ae307d668ef39016aec8c0ddc7087d1abceda344c877d9d"
+          },
+          "contentId": "refill-classical-20261105-42038015527-25"
+        },
+        {
+          "index": 25,
+          "status": "published",
+          "attemptedAt": "2026-11-05T14:02:24.846Z",
+          "metadata": {
+            "provider": "PackyAPI",
+            "model": "gpt-6.1-sol",
+            "generatedAt": "2026-11-05T14:04:08.173Z",
+            "tokenUsage": {
+              "inputTokens": 530,
+              "outputTokens": 4148,
+              "totalTokens": 4678
+            },
+            "responseId": "resp_07bd0f354de61e03016aec8c727c3087d183e083916851d812"
+          },
+          "contentId": "refill-classical-20261105-42038015527-26"
+        },
+        {
+          "index": 26,
+          "status": "published",
+          "attemptedAt": "2026-11-05T14:02:46.615Z",
+          "metadata": {
+            "provider": "PackyAPI",
+            "model": "gpt-6.1-sol",
+            "generatedAt": "2026-11-05T14:04:14.196Z",
+            "tokenUsage": {
+              "inputTokens": 571,
+              "outputTokens": 4259,
+              "totalTokens": 4830
+            },
+            "responseId": "resp_00bab2b8a1fc4ab3016aec8c87b13487d28516cb8d0600babe"
+          },
+          "contentId": "refill-classical-20261105-42038015527-27"
+        },
+        {
+          "index": 27,
+          "status": "published",
+          "attemptedAt": "2026-11-05T14:04:08.239Z",
+          "metadata": {
+            "provider": "PackyAPI",
+            "model": "gpt-6.1-sol",
+            "generatedAt": "2026-11-05T14:05:58.114Z",
+            "tokenUsage": {
+              "inputTokens": 622,
+              "outputTokens": 4545,
+              "totalTokens": 5167
+            },
+            "responseId": "resp_02920efb9aaf3bcc016aec8cd9191087d0b29f2dd11ceea6eb"
+          },
+          "contentId": "refill-classical-20261105-42038015527-28"
+        },
+        {
+          "index": 28,
+          "status": "published",
+          "attemptedAt": "2026-11-05T14:04:14.256Z",
+          "metadata": {
+            "provider": "PackyAPI",
+            "model": "gpt-6.1-sol",
+            "generatedAt": "2026-11-05T14:05:40.361Z",
+            "tokenUsage": {
+              "inputTokens": 554,
+              "outputTokens": 4191,
+              "totalTokens": 4745
+            },
+            "responseId": "resp_064cf4d45b4356ba016aec8cdf1e4887d0a10737eba30b62ff"
+          },
+          "contentId": "refill-classical-20261105-42038015527-29"
+        },
+        {
+          "index": 29,
+          "status": "published",
+          "attemptedAt": "2026-11-05T14:05:40.420Z",
+          "metadata": {
+            "provider": "PackyAPI",
+            "model": "gpt-6.1-sol",
+            "generatedAt": "2026-11-05T14:07:47.272Z",
+            "tokenUsage": {
+              "inputTokens": 598,
+              "outputTokens": 3586,
+              "totalTokens": 4184
+            },
+            "responseId": "resp_05f8785baeb21e49016aec8d3586c887d1a8499ca2dacc4919"
+          },
+          "contentId": "refill-classical-20261105-42038015527-30"
+        },
+        {
+          "index": 30,
+          "status": "published",
+          "attemptedAt": "2026-11-05T14:05:58.185Z",
+          "metadata": {
+            "provider": "PackyAPI",
+            "model": "gpt-6.1-sol",
+            "generatedAt": "2026-11-05T14:07:40.367Z",
+            "tokenUsage": {
+              "inputTokens": 571,
+              "outputTokens": 4039,
+              "totalTokens": 4610
+            },
+            "responseId": "resp_09fe77f502a9d097016aec8d48a0c087d0b85b162de51890d5"
+          },
+          "contentId": "refill-classical-20261105-42038015527-31"
+        },
+        {
+          "index": 31,
+          "status": "published",
+          "attemptedAt": "2026-11-05T14:07:40.440Z",
+          "metadata": {
+            "provider": "PackyAPI",
+            "model": "gpt-6.1-sol",
+            "generatedAt": "2026-11-05T14:09:42.924Z",
+            "tokenUsage": {
+              "inputTokens": 544,
+              "outputTokens": 4145,
+              "totalTokens": 4689
+            },
+            "responseId": "resp_031c3e21cedbe07e016aec8dad76a887d19a20fd4fb4f028ff"
+          },
+          "contentId": "refill-classical-20261105-42038015527-32"
+        },
+        {
+          "index": 32,
+          "status": "published",
+          "attemptedAt": "2026-11-05T14:07:47.335Z",
+          "metadata": {
+            "provider": "PackyAPI",
+            "model": "gpt-6.1-sol",
+            "generatedAt": "2026-11-05T14:09:23.569Z",
+            "tokenUsage": {
+              "inputTokens": 581,
+              "outputTokens": 3697,
+              "totalTokens": 4278
+            },
+            "responseId": "resp_05dedfbd775977d6016aec8db4323c87d2b44c5d038646938e"
+          },
+          "contentId": "refill-classical-20261105-42038015527-33"
+        },
+        {
+          "index": 33,
+          "status": "discarded",
+          "attemptedAt": "2026-11-05T14:09:23.629Z",
+          "metadata": {
+            "provider": "PackyAPI",
+            "model": "gpt-6.1-sol",
+            "generatedAt": "2026-11-05T14:10:54.285Z",
+            "tokenUsage": {
+              "inputTokens": 551,
+              "outputTokens": 4194,
+              "totalTokens": 4745
+            },
+            "responseId": "resp_0817f95ad560e78b016aec8e14a7fc87d29ce0f04ad8966347"
+          },
+          "reason": "target reached"
+        }
+      ],
+      "addedIds": [
+        "refill-classical-20261105-42038015527-01",
+        "refill-classical-20261105-42038015527-03",
+        "refill-classical-20261105-42038015527-04",
+        "refill-classical-20261105-42038015527-05",
+        "refill-classical-20261105-42038015527-07",
+        "refill-classical-20261105-42038015527-08",
+        "refill-classical-20261105-42038015527-09",
+        "refill-classical-20261105-42038015527-10",
+        "refill-classical-20261105-42038015527-11",
+        "refill-classical-20261105-42038015527-12",
+        "refill-classical-20261105-42038015527-13",
+        "refill-classical-20261105-42038015527-14",
+        "refill-classical-20261105-42038015527-15",
+        "refill-classical-20261105-42038015527-16",
+        "refill-classical-20261105-42038015527-17",
+        "refill-classical-20261105-42038015527-19",
+        "refill-classical-20261105-42038015527-18",
+        "refill-classical-20261105-42038015527-20",
+        "refill-classical-20261105-42038015527-21",
+        "refill-classical-20261105-42038015527-22",
+        "refill-classical-20261105-42038015527-23",
+        "refill-classical-20261105-42038015527-25",
+        "refill-classical-20261105-42038015527-26",
+        "refill-classical-20261105-42038015527-27",
+        "refill-classical-20261105-42038015527-29",
+        "refill-classical-20261105-42038015527-28",
+        "refill-classical-20261105-42038015527-31",
+        "refill-classical-20261105-42038015527-30",
+        "refill-classical-20261105-42038015527-33",
+        "refill-classical-20261105-42038015527-32"
+      ],
+      "startedAt": "2026-11-05T13:41:58.671Z",
+      "contentVersion": 62,
+      "completedAt": "2026-11-05T14:10:54.290Z",
+      "acceptedCount": 30,
+      "attemptedCount": 34
     }
   }
 }
