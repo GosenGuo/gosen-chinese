@@ -48,7 +48,8 @@ public class MainActivityTest {
             controller.pause().resume();
             assertEquals(1,activity.store.completedCount());
             click(activity.shell,"我的");
-            assertNotNull(find(activity.shell,"检查软件更新"));
+            assertNull(find(activity.shell,"检查软件更新"));
+            assertNotNull(find(activity.shell,"软件版本"));
             assertNotNull(find(activity.shell,"导出学习备份"));
         }
     }

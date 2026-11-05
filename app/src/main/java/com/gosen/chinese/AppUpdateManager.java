@@ -31,6 +31,7 @@ import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.function.LongSupplier;
 
 /** Optional, signed in-place updates. Every install handoff consumes its pending state. */
 public final class AppUpdateManager {
@@ -38,7 +39,12 @@ public final class AppUpdateManager {
     private final Activity activity;
     private final SharedPreferences prefs;
     private final DownloadManager downloads;
-    private final ExecutorService worker = Executors.newSingleThreadExecutor();
+    private final ExecutorService worker;
+    private final UpdateSources.Fetcher manifestFetcher;
+    private final LongSupplier clock;
+    private static final long AUTO_COOLDOWN_MS=3*60_000L;
+    private static final long FAILED_RETRY_MS=30_000L;
+    private long nextAutomaticCheckAt;
     private volatile boolean closed, checking, verifying;
     private boolean dialogVisible;
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
@@ -51,7 +57,14 @@ public final class AppUpdateManager {
     };
 
     public AppUpdateManager(Activity activity) {
+        this(activity,null,Executors.newSingleThreadExecutor(),android.os.SystemClock::elapsedRealtime);
+    }
+
+    AppUpdateManager(Activity activity,UpdateSources.Fetcher fetcher,ExecutorService executor,LongSupplier clock) {
         this.activity = activity;
+        this.worker=executor;
+        this.clock=clock;
+        this.manifestFetcher=fetcher;
         prefs = activity.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         downloads = (DownloadManager) activity.getSystemService(Context.DOWNLOAD_SERVICE);
         IntentFilter filter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
@@ -61,11 +74,18 @@ public final class AppUpdateManager {
 
     public void checkForUpdates() { checkForUpdates(false); }
     public void checkForUpdates(boolean userInitiated) {
-        if (checking || closed) { if (userInitiated) message("正在检查更新"); return; }
-        checking = true;
+        synchronized(this) {
+            if(closed)return;
+            if(checking){if(userInitiated)message("正在检查更新");return;}
+            if(!userInitiated&&(clock.getAsLong()<nextAutomaticCheckAt||prefs.getLong("downloadId",-1)>=0))return;
+            checking=true;
+            nextAutomaticCheckAt=clock.getAsLong()+AUTO_COOLDOWN_MS;
+        }
         execute(() -> {
             try {
-                UpdateInfo info = fetch(BuildConfig.UPDATE_MANIFEST_URL);
+                final long deadline=android.os.SystemClock.elapsedRealtime()+16_000L;
+                UpdateSources.Fetcher fetcher=manifestFetcher!=null?manifestFetcher:url->fetchJson(url,deadline);
+                UpdateInfo info=UpdateSources.load(BuildConfig.UPDATE_MANIFEST_URL,activity.getPackageName(),fetcher);
                 ui(() -> {
                     if (info.versionCode <= BuildConfig.VERSION_CODE) {
                         if (userInitiated) message("已是最新版本 " + BuildConfig.VERSION_NAME);
@@ -74,7 +94,8 @@ public final class AppUpdateManager {
                     }
                 });
             } catch (Exception error) {
-                if (userInitiated) ui(() -> message("暂时无法检查更新，请稍后重试"));
+                synchronized(AppUpdateManager.this){nextAutomaticCheckAt=clock.getAsLong()+FAILED_RETRY_MS;}
+                if (userInitiated) ui(() -> message("暂时连接不上更新服务，下次打开会自动重试"));
             } finally { checking = false; }
         });
     }
@@ -86,7 +107,7 @@ public final class AppUpdateManager {
         if (prefs.getBoolean("waitingPermission", false)) {
             prefs.edit().putBoolean("waitingPermission", false).apply();
             if (canInstall()) inspectDownload(prefs.getLong("downloadId", -1));
-            else message("安装许可未开启，可在设置中重新检查更新");
+            else message("安装许可未开启，下次打开时可重新更新");
             return;
         }
         // Only an unfinished download is resumed. Cancelled installer handoffs have no pending ID.
@@ -114,13 +135,15 @@ public final class AppUpdateManager {
                 json.optString("releaseNotes", "改进学习体验并修复问题。"));
     }
 
-    private UpdateInfo fetch(String url) throws Exception {
-        for (int redirects=0; redirects<5; redirects++) {
+    private JSONObject fetchJson(String url,long deadline) throws Exception {
+        for (int redirects=0; redirects<3; redirects++) {
             URL address = new URL(url);
-            if (!"https".equals(address.getProtocol())) throw new IllegalArgumentException("HTTPS required");
+            if (!"https".equals(address.getProtocol())||address.getUserInfo()!=null) throw new IllegalArgumentException("HTTPS required");
+            int remaining=(int)Math.min(Integer.MAX_VALUE,deadline-android.os.SystemClock.elapsedRealtime());
+            if(remaining<=0)throw new java.net.SocketTimeoutException("Update check deadline exceeded");
             HttpURLConnection connection = (HttpURLConnection) address.openConnection();
             connection.setInstanceFollowRedirects(false);
-            connection.setConnectTimeout(10_000); connection.setReadTimeout(15_000);
+            connection.setConnectTimeout(Math.min(2500,remaining)); connection.setReadTimeout(Math.min(3500,remaining));
             connection.setRequestProperty("Accept", "application/json");
             connection.setRequestProperty("User-Agent", "GosenChinese/" + BuildConfig.VERSION_NAME);
             try {
@@ -128,14 +151,15 @@ public final class AppUpdateManager {
                 if (status>=300 && status<400) {
                     url = new URL(address, connection.getHeaderField("Location")).toString(); continue;
                 }
-                if (status != 200) throw new IllegalStateException("Update service unavailable");
+                if (status != 200) throw new IllegalStateException("Update service returned HTTP "+status);
                 try (InputStream stream=connection.getInputStream(); ByteArrayOutputStream out=new ByteArrayOutputStream()) {
                     byte[] buffer=new byte[4096]; int count;
                     while ((count=stream.read(buffer))!=-1) {
+                        if(android.os.SystemClock.elapsedRealtime()>deadline)throw new java.net.SocketTimeoutException("Update check deadline exceeded");
                         if (out.size()+count>131072) throw new IllegalArgumentException("Manifest too large");
                         out.write(buffer,0,count);
                     }
-                    return parseManifest(new JSONObject(out.toString(StandardCharsets.UTF_8.name())), activity.getPackageName());
+                    return new JSONObject(out.toString(StandardCharsets.UTF_8.name()));
                 }
             } finally { connection.disconnect(); }
         }
