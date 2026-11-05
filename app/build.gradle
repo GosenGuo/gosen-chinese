@@ -2,6 +2,8 @@ plugins { id 'com.android.application' }
 def releaseVersion = new groovy.json.JsonSlurper().parse(rootProject.file('release/version.json'))
 def signingValue = { String name -> System.getenv(name) ?: '' }
 def hasReleaseSigning = ['ANDROID_KEYSTORE_PATH', 'ANDROID_KEYSTORE_PASSWORD', 'ANDROID_KEY_ALIAS', 'ANDROID_KEY_PASSWORD'].every { signingValue(it) }
+def refillUrl = project.findProperty('CONTENT_REFILL_URL') ?: System.getenv('CONTENT_REFILL_URL') ?: ''
+def refillToken = project.findProperty('CONTENT_REFILL_TOKEN') ?: System.getenv('CONTENT_REFILL_TOKEN') ?: ''
 android {
     namespace 'com.gosen.chinese'
     compileSdk 35
@@ -13,6 +15,8 @@ android {
         versionName project.findProperty('VERSION_NAME') ?: releaseVersion.versionName
         buildConfigField 'String', 'UPDATE_MANIFEST_URL', '"' + (project.findProperty('UPDATE_MANIFEST_URL') ?: 'https://gosenguo.github.io/gosen-chinese/app-update.json') + '"'
         buildConfigField 'String', 'CONTENT_FEED_URL', '"' + (project.findProperty('CONTENT_FEED_URL') ?: 'https://gosenguo.github.io/gosen-chinese/library.json') + '"'
+        buildConfigField 'String', 'CONTENT_REFILL_URL', '"' + refillUrl + '"'
+        buildConfigField 'String', 'CONTENT_REFILL_TOKEN', '"' + refillToken + '"'
     }
     buildFeatures { buildConfig true }
     signingConfigs {
@@ -47,6 +51,7 @@ def verifyReleaseSigning = tasks.register('verifyReleaseSigning') {
     doLast {
         if (!hasReleaseSigning) throw new GradleException('Release signing requires all four ANDROID_KEYSTORE_* / ANDROID_KEY_* environment values. No debug signing fallback is permitted.')
         if (!file(signingValue('ANDROID_KEYSTORE_PATH')).isFile()) throw new GradleException('Release keystore file does not exist.')
+        if (!refillUrl.startsWith('https://') || !refillToken) throw new GradleException('Release requires an HTTPS content refill endpoint and trigger token.')
     }
 }
 tasks.configureEach { task ->

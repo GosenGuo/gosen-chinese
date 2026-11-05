@@ -41,7 +41,9 @@ public class AppearanceTest {
         shadowOf(Looper.getMainLooper()).idle();
         View decor = activity.getWindow().getDecorView();
         decor.measure(View.MeasureSpec.makeMeasureSpec(786, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(1704, View.MeasureSpec.EXACTLY));
-        decor.layout(0, 0, 786, 1704); shadowOf(Looper.getMainLooper()).idle();
+        decor.layout(0, 0, 786, 1704);
+        decor.getViewTreeObserver().dispatchOnGlobalLayout();
+        shadowOf(Looper.getMainLooper()).idle();
     }
     private TextView named(View root, String label) {
         if (root instanceof TextView && label.contentEquals(((TextView)root).getText())) return (TextView)root;
@@ -116,8 +118,12 @@ public class AppearanceTest {
             ReadingActivity activity = controller.get(); activity.scroll.scrollTo(0, 220); int y = activity.scroll.getScrollY();
             Configuration night = new Configuration(activity.getResources().getConfiguration());
             night.uiMode = (night.uiMode & ~Configuration.UI_MODE_NIGHT_MASK) | Configuration.UI_MODE_NIGHT_YES;
-            controller.configurationChange(night); activity = controller.get(); settle(activity);
-            assertTrue(activity.dark); assertEquals(y, activity.scroll.getScrollY());
+            controller.configurationChange(night).visible(); activity = controller.get(); settle(activity);
+            assertTrue(activity.dark);
+            assertEquals("Saved reading position="+activity.store.scroll("classic-01","learning:body")
+                    +", viewport="+activity.scroll.getHeight()+", content="+activity.content.getHeight()
+                    +", themeChange="+activity.isThemeChanged(),
+                    y, activity.scroll.getScrollY());
             activity.store.putSetting("appearanceMode", "light"); controller.recreate(); activity = controller.get(); settle(activity);
             assertFalse(activity.dark);
         }

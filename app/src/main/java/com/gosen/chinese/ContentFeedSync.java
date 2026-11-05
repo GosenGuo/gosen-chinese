@@ -66,6 +66,17 @@ public final class ContentFeedSync {
         require(id.matches("[A-Za-z0-9_-]{1,140}"),"内容编号无效");text(item,"title");text(item,"sourceLabel");text(item,"verification");
         require(module.equals("classics")||module.equals("modern")||module.equals("classical")||module.equals("essay"),"未知模块");
         require(body.length()>=25&&body.length()<=100000&&!body.contains("\ufffd"),"正文异常");
+        if(item.has("characterNotes")){
+            JSONArray characters=item.getJSONArray("characterNotes");int previousEnd=0;
+            for(int i=0;i<characters.length();i++){
+                JSONObject character=characters.getJSONObject(i);int start=character.getInt("start"),end=character.getInt("end");
+                String word=text(character,"character");text(character,"meaning");text(character,"detail");
+                require(start>=previousEnd&&end<=body.length()&&end>start&&word.codePointCount(0,word.length())==1&&body.substring(start,end).equals(word),"单字注释定位无效");
+                previousEnd=end;
+            }
+            JSONObject coverage=item.getJSONObject("characterAnnotationCoverage");
+            require(coverage.optBoolean("complete",false)&&coverage.getInt("totalHanPositions")==characters.length()&&coverage.getInt("annotatedHanPositions")==characters.length(),"单字注释覆盖计数无效");
+        }
         JSONArray notes=item.optJSONArray("notes");
         if(notes!=null)for(int i=0;i<notes.length();i++){
             JSONObject note=notes.getJSONObject(i);String quote=text(note,"quote");text(note,"meaning");

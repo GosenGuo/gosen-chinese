@@ -3,6 +3,7 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 import {fileURLToPath} from 'node:url';
 import {sentenceUnits} from './complete-classic-annotations.mjs';
+import {validateCharacterNotes} from './complete-character-annotations.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 
 export function locateOccurrence(body,quote,occurrence=0){
@@ -87,5 +88,6 @@ if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.ur
   const data=JSON.parse(fs.readFileSync(path.join(root,'app/src/main/assets/classics.json'),'utf8'));
   const mapping=JSON.parse(fs.readFileSync(path.join(root,'scripts/sources/textbook-order.json'),'utf8'));
   const totals=validateClassics(data,mapping);
+  totals.characters=data.items.reduce((sum,item)=>sum+validateCharacterNotes(item),0);
   console.log(JSON.stringify({result:'PASS',...totals,scope:'教材顺序、全部含汉字句段的注释和译文覆盖、精确原文位置与题目引用检查；不冒称教材原注或人工语义全量审定'},null,2));
 }

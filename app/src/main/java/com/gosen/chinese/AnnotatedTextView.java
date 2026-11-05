@@ -27,6 +27,7 @@ public class AnnotatedTextView extends TextView {
     public interface Listener { void onNote(AnnotationResolver.ResolvedNote note, RectF screenAnchor); }
     public interface UnannotatedTapListener { void onTextTap(int offset, RectF screenAnchor); }
     private List<AnnotationResolver.ResolvedNote> notes = new ArrayList<>();
+    private List<AnnotationResolver.ResolvedNote> markCandidates = new ArrayList<>();
     private final List<AnnotationResolver.ResolvedNote> marked = new ArrayList<>();
     private final Paint wavePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path wave = new Path();
@@ -54,7 +55,11 @@ public class AnnotatedTextView extends TextView {
     public void bind(JSONObject article, StudyStore studyStore, boolean enableHints, Listener listener) {
         articleId = article.optString("id");
         store = studyStore;
-        notes = enableHints ? AnnotationResolver.resolve(article) : new ArrayList<>();
+        notes = enableHints ? CharacterAnnotationResolver.resolve(article) : new ArrayList<>();
+        markCandidates = enableHints ? new ArrayList<>(AnnotationResolver.resolve(article)) : new ArrayList<>();
+        java.util.Set<String> markKeys=new java.util.HashSet<>();
+        for(AnnotationResolver.ResolvedNote note:markCandidates)markKeys.add(note.key(articleId));
+        for(AnnotationResolver.ResolvedNote note:notes)if(markKeys.add(note.key(articleId)))markCandidates.add(note);
         SpannableString text = new SpannableString(article.optString("body"));
         for (AnnotationResolver.ResolvedNote note : notes) {
             text.setSpan(new ClickableSpan() {
@@ -72,7 +77,7 @@ public class AnnotatedTextView extends TextView {
 
     public void refreshMarks() {
         marked.clear();
-        if (store != null) for (AnnotationResolver.ResolvedNote note : notes) {
+        if (store != null) for (AnnotationResolver.ResolvedNote note : markCandidates) {
             if (store.hasReview(note.key(articleId))) marked.add(note);
         }
         invalidate();
@@ -129,6 +134,11 @@ public class AnnotatedTextView extends TextView {
             int slop = ViewConfiguration.get(getContext()).getScaledTouchSlop();
             if (Math.abs(event.getX() - downX) > slop || Math.abs(event.getY() - downY) > slop) dragged = true;
         } else if (action == MotionEvent.ACTION_CANCEL) { dragged = true; textGesture = false; }
+        if(action==MotionEvent.ACTION_UP&&!notes.isEmpty()
+                &&(dragged||event.getEventTime()-event.getDownTime()>=ViewConfiguration.getLongPressTimeout())){
+            MotionEvent cancel=MotionEvent.obtain(event);cancel.setAction(MotionEvent.ACTION_CANCEL);
+            super.onTouchEvent(cancel);cancel.recycle();return false;
+        }
         boolean handled = super.onTouchEvent(event);
         if (action == MotionEvent.ACTION_UP && textGesture && !dragged && unannotatedTapListener != null
                 && event.getEventTime() - event.getDownTime() < ViewConfiguration.getLongPressTimeout()) {

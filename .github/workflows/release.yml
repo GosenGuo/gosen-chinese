@@ -21,6 +21,8 @@ jobs:
       ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
       ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
       ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      CONTENT_REFILL_URL: ${{ vars.CONTENT_REFILL_URL }}
+      CONTENT_REFILL_TOKEN: ${{ secrets.CONTENT_REFILL_TOKEN }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
@@ -32,7 +34,7 @@ jobs:
           java-version: '17'
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
       - uses: android-actions/setup-android@v3
         with:
           packages: platform-tools
@@ -57,6 +59,8 @@ jobs:
         run: |
           node scripts/check-classics.mjs
           node scripts/validate-practice-content.mjs
+          node scripts/validate-content-feed.mjs
+          node --test scripts/complete-character-annotations.test.mjs scripts/complete-classic-annotations.test.mjs scripts/test-content-feed.mjs scripts/test-refill-content.mjs refill-service/test/index.test.js
           node --test scripts/write-update-manifest.test.mjs
           node --test scripts/prepare-pages.test.mjs
       - name: Test and build signed release

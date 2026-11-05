@@ -92,8 +92,31 @@ public abstract class BaseActivity extends Activity {
         if (restoredScrollY >= 0 && !themeRecreationRequested) {
             final int position = restoredScrollY;
             restoredScrollY = -1;
-            scroll.post(() -> scroll.scrollTo(0, position));
+            afterContentLayout(() -> scroll.scrollTo(0, position));
         }
+    }
+
+    /** A posted action alone can run before the replacement window has measured its scroll range. */
+    protected void afterContentLayout(Runnable action) {
+        final ScrollView target = scroll;
+        final LinearLayout pageContent = content;
+        class LayoutAction implements android.view.ViewTreeObserver.OnGlobalLayoutListener, Runnable {
+            private boolean done;
+            @Override public void onGlobalLayout() { run(); }
+            @Override public void run() {
+                if (done || target.getHeight() <= 0 || pageContent.getHeight() <= 0
+                        || target.isLayoutRequested() || pageContent.isLayoutRequested()) return;
+                done = true;
+                if (target.getViewTreeObserver().isAlive())
+                    target.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+                if (!isFinishing() && !isDestroyed() && !themeRecreationRequested
+                        && target == scroll && pageContent == content) action.run();
+            }
+        }
+        LayoutAction restore = new LayoutAction();
+        target.getViewTreeObserver().addOnGlobalLayoutListener(restore);
+        target.post(restore);
+        pageContent.requestLayout();
     }
 
     protected void chooseAppearance(Runnable refresh) {

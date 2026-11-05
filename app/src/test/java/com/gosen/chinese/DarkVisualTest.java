@@ -1,6 +1,7 @@
 package com.gosen.chinese;
 
 import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
@@ -60,6 +61,7 @@ public class DarkVisualTest {
                 if(width<=0)width=p.width;if(height<=0)height=p.height;
                 if((p.gravity&android.view.Gravity.HORIZONTAL_GRAVITY_MASK)==android.view.Gravity.CENTER_HORIZONTAL)x=(786-width)/2;
                 if((p.gravity&android.view.Gravity.VERTICAL_GRAVITY_MASK)==android.view.Gravity.CENTER_VERTICAL)y=(1704-height)/2;
+                if((p.gravity&android.view.Gravity.VERTICAL_GRAVITY_MASK)==android.view.Gravity.BOTTOM)y=1704-height-p.y;
             }
             if(width<=0)width=690;if(height<=0)height=1000;
             root.measure(View.MeasureSpec.makeMeasureSpec(width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(height,View.MeasureSpec.EXACTLY));
@@ -83,7 +85,7 @@ public class DarkVisualTest {
             ClickableSpan[] spans=content.getSpans(0,content.length(),ClickableSpan.class);assertTrue(spans.length>0);spans[0].onClick(body);
             PopupWindow popup=ReflectionHelpers.getField(activity,"bubble");assertNotNull(popup);
             snapshot(activity,"dark-word-bubble",popup.getContentView());popup.getContentView().performClick();
-            AlertDialog detail=ShadowAlertDialog.getLatestAlertDialog();assertNotNull(detail);
+            Dialog detail=ReflectionHelpers.getField(activity,"characterSheet");assertNotNull(detail);
             snapshot(activity,"dark-word-detail",detail.getWindow().getDecorView());detail.dismiss();
         }
     }

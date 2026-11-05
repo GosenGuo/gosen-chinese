@@ -1,6 +1,7 @@
 package com.gosen.chinese;
 
 import android.app.AlertDialog;
+import android.app.Dialog;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -14,6 +15,8 @@ import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
@@ -25,6 +28,7 @@ import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.Switch;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.util.ArrayList;
@@ -42,6 +46,9 @@ public class ReadingActivity extends BaseActivity {
     private boolean reciteBlank;
     private int reciteIndex;
     private PopupWindow bubble;
+    private Dialog characterSheet;
+    private int bubbleStart=-1, bubbleEnd=-1;
+    private long bubbleDismissedAt;
     private AnnotatedTextView bodyView;
     private List<String> pendingEvidence = new ArrayList<>();
 
@@ -69,6 +76,7 @@ public class ReadingActivity extends BaseActivity {
     @Override protected void onPause() {
         savePosition();
         dismissBubble();
+        if(characterSheet!=null)characterSheet.dismiss();
         super.onPause();
     }
 
@@ -145,7 +153,7 @@ public class ReadingActivity extends BaseActivity {
         else if (page.equals("recite")) renderRecitation();
         else renderBody();
         int restore = store.scroll(articleId, pageKey());
-        scroll.post(() -> {
+        afterContentLayout(() -> {
             if (bodyView != null && !pendingEvidence.isEmpty()) {
                 bodyView.highlight(pendingEvidence);
                 String first = pendingEvidence.get(0);
@@ -619,30 +627,20 @@ public class ReadingActivity extends BaseActivity {
 
     private void showNoteBubble(AnnotationResolver.ResolvedNote resolved, RectF anchor) {
         if (!isAncient()) return;
+        boolean sameCharacter=bubbleStart==resolved.start&&bubbleEnd==resolved.end;
+        if(sameCharacter&&((bubble!=null&&bubble.isShowing())
+                ||android.os.SystemClock.elapsedRealtime()-bubbleDismissedAt<350)){
+            dismissBubble();showNoteDetail(resolved);return;
+        }
         JSONObject note = resolved.note;
-        showTextBubble(note.optString("quote") + "  ·  " + note.optString("meaning"), "点开查看完整释义", anchor,
+        showTextBubble(note.optString("quote"), note.optString("meaning"), anchor,
                 () -> showNoteDetail(resolved), resolved.start, resolved.end);
     }
 
     private void showUnannotatedFeedback(int offset, RectF anchor) {
         if (!isAncient()) return;
-        TranslationRange matched = translationAt(offset);
-        if (matched != null) {
-            String sentence = matched.quote, translated = matched.translation;
-            String preview = translated.length() > 72 ? translated.substring(0, 72) + "…" : translated;
-            RectF sentenceAnchor = bodyView == null ? anchor : bodyView.anchorForRange(matched.start, matched.end, offset);
-            showTextBubble("译文", preview + "\n点开查看完整句段", sentenceAnchor, () -> {
-                if (bodyView != null) bodyView.setActiveRange(matched.start, matched.end);
-                AlertDialog.Builder dialog = dialogBuilder().setTitle("译文")
-                        .setMessage(sentence + "\n\n" + translated).setPositiveButton("关闭", null);
-                if (!AnnotationResolver.resolve(article).isEmpty()) dialog.setNeutralButton("本篇重点词", (window, which) -> showCollectedNotes());
-                AlertDialog shown = dialog.create(); shown.setOnDismissListener(window -> clearActiveRange()); shown.show();
-            }, matched.start, matched.end);
-        } else {
-            boolean hasNotes = !AnnotationResolver.resolve(article).isEmpty();
-            showTextBubble("此处暂未收录注释", hasNotes ? "点开本篇已收录的重点词" : "点开查看内容来源", anchor,
-                    hasNotes ? this::showCollectedNotes : () -> sourceInfo(article), offset, Math.min(offset + 1, article.optString("body").length()));
-        }
+        for(AnnotationResolver.ResolvedNote note:CharacterAnnotationResolver.resolve(article))
+            if(offset>=note.start&&offset<note.end){showNoteBubble(note,anchor);return;}
     }
 
     private void showCollectedNotes() {
@@ -658,8 +656,8 @@ public class ReadingActivity extends BaseActivity {
         if (bodyView != null) bodyView.setActiveRange(activeStart, activeEnd);
         LinearLayout tip = column();
         tip.setPadding(dp(16), dp(12), dp(16), dp(12)); tip.setBackground(rounded(SURFACE, 14));
-        tip.addView(text(title, 16, INK, true));
-        margin(tip, text(hint, 12, MUTED, false), 7);
+        tip.addView(text(title, 21, GREEN, true));
+        margin(tip, text(hint, 16, INK, false), 7);
         int maxWidth = Math.min(dp(310), getResources().getDisplayMetrics().widthPixels - dp(32));
         tip.measure(View.MeasureSpec.makeMeasureSpec(maxWidth, View.MeasureSpec.AT_MOST), View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
         int width = Math.max(dp(170), tip.getMeasuredWidth());
@@ -685,39 +683,73 @@ public class ReadingActivity extends BaseActivity {
         popup.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT)); popup.setElevation(dp(8)); popup.setOutsideTouchable(true);
         if (Build.VERSION.SDK_INT >= 29) popup.setTouchModal(false);
         frame.setOnClickListener(v -> { dismissBubble(); action.run(); });
-        popup.setOnDismissListener(() -> { if (bubble == popup) bubble = null; clearActiveRange(); });
+        popup.setOnDismissListener(() -> {
+            if(bubble==popup){bubble=null;bubbleDismissedAt=android.os.SystemClock.elapsedRealtime();clearActiveRange();}
+        });
+        bubbleStart=activeStart;bubbleEnd=activeEnd;bubbleDismissedAt=0;
         bubble = popup; popup.showAtLocation(shell, Gravity.TOP | Gravity.LEFT, x, y); animate(frame);
     }
 
     private void showNoteDetail(AnnotationResolver.ResolvedNote resolved) {
+        if(characterSheet!=null){characterSheet.setOnDismissListener(null);characterSheet.dismiss();characterSheet=null;}
         if (bodyView != null) bodyView.setActiveRange(resolved.start, resolved.end);
         JSONObject note = resolved.note;
-        LinearLayout box = column(); box.setPadding(dp(24), dp(14), dp(24), dp(22));
-        box.addView(text(note.optString("meaning"), 22, INK, true));
-        if (!note.optString("detail").isEmpty()) margin(box, text(note.optString("detail"), 16, MUTED, false), 15);
-        String sentence = note.optString("sentence");
-        if (sentence.isEmpty()) sentence = sentenceAt(resolved.start);
-        margin(box, text("所在句", 12, GREEN, true), 23); margin(box, text(sentence, 18, INK, false), 10);
-        String translation = note.optString("translation");
-        if (translation.isEmpty()) translation = translationFor(sentence);
-        if (!translation.isEmpty()) margin(box, text(translation, 16, MUTED, false), 12);
+        Dialog dialog=new Dialog(this);dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        LinearLayout sheet=column();sheet.setPadding(dp(22),dp(12),dp(22),dp(22));sheet.setBackground(rounded(SURFACE,24));
+        View handle=new View(this);handle.setBackground(rounded(LINE,3));
+        LinearLayout.LayoutParams handleParams=new LinearLayout.LayoutParams(dp(36),dp(4));handleParams.gravity=Gravity.CENTER_HORIZONTAL;handleParams.bottomMargin=dp(20);sheet.addView(handle,handleParams);
+        ScrollView details=new ScrollView(this);details.setVerticalScrollBarEnabled(false);
+        LinearLayout box=column();details.addView(box);
+        TextView character=text(note.optString("quote"),42,INK,true);character.setTypeface(Typeface.SERIF,Typeface.BOLD);box.addView(character);
+        margin(box,text(note.optString("meaning"),21,GREEN,true),12);
+        if(!note.optString("detail").isEmpty()&&!note.optString("detail").equals(note.optString("meaning")))
+            margin(box,text(note.optString("detail"),15,MUTED,false),12);
+        TranslationRange context=translationAt(resolved.start);
+        String sentence=context==null?note.optString("sentence"):context.quote;
+        if(sentence.isEmpty())sentence=sentenceAt(resolved.start);
+        String translation=context==null?note.optString("translation"):context.translation;
+        if(translation.isEmpty())translation=translationFor(sentence);
+        margin(box,text("原句",12,MUTED,true),23);
+        TextView original=text(sentence,18,INK,false);
+        int relative=context==null?sentence.indexOf(note.optString("quote")):resolved.start-context.start;
+        if(relative>=0&&relative+note.optString("quote").length()<=sentence.length()){
+            android.text.SpannableString highlighted=new android.text.SpannableString(sentence);
+            highlighted.setSpan(new android.text.style.ForegroundColorSpan(GREEN),relative,relative+note.optString("quote").length(),android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            highlighted.setSpan(new android.text.style.StyleSpan(Typeface.BOLD),relative,relative+note.optString("quote").length(),android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);original.setText(highlighted);
+        }
+        margin(box,original,10);
+        if(!translation.isEmpty()){margin(box,text("译文",12,MUTED,true),18);margin(box,text(translation,16,INK,false),9);}
         String key = resolved.key(articleId);
         final String finalSentence = sentence;
         final String finalTranslation = translation;
-        Button review = button(store.hasReview(key) ? "已加入复习 · 点击移出" : "加入字词复习", true, () -> {});
-        review.setOnClickListener(v -> {
-            toggleReview(key, json("key", key, "type", "word", "title", note.optString("quote"),
+        Switch review=new Switch(this);review.setText("加入字词复习");review.setTextColor(INK);review.setTextSize(16);
+        review.setMinHeight(dp(48));review.setPadding(0,dp(8),0,dp(8));review.setTag("characterReview");
+        review.setThumbTintList(new android.content.res.ColorStateList(new int[][]{new int[]{android.R.attr.state_checked},new int[]{}},new int[]{GREEN,MUTED}));
+        review.setTrackTintList(new android.content.res.ColorStateList(new int[][]{new int[]{android.R.attr.state_checked},new int[]{}},new int[]{SOFT,LINE}));
+        review.setChecked(store.hasReview(key));
+        review.setOnCheckedChangeListener((button,checked)-> {
+            if(checked)store.saveReview(json("key", key, "type", "word", "title", note.optString("quote"),
                     "prompt", finalSentence, "answer", note.optString("meaning") + "\n" + note.optString("detail") + "\n" + finalTranslation,
                     "articleId", articleId, "quote", note.optString("quote"), "source", article.optString("title")));
-            review.setText(store.hasReview(key) ? "已加入复习 · 点击移出" : "加入字词复习");
+            else store.removeReview(key);
             if (bodyView != null) bodyView.refreshMarks(); animate(review);
         });
         margin(box, review, 24);
-        String source = note.optString("source", "本软件参考整理；教材注释请以所用版本为准。");
-        margin(box, text(source, 12, MUTED, false), 18);
-        ScrollView wrapper = new ScrollView(this); wrapper.addView(box);
-        AlertDialog detail = dialogBuilder().setTitle(note.optString("quote")).setView(wrapper).setPositiveButton("关闭", null).create();
-        detail.setOnDismissListener(window -> clearActiveRange()); detail.show();
+        int maxDetails=Math.round(getResources().getDisplayMetrics().heightPixels*.62f);
+        details.measure(View.MeasureSpec.makeMeasureSpec(getResources().getDisplayMetrics().widthPixels-dp(44),View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED));
+        sheet.addView(details,new LinearLayout.LayoutParams(-1,Math.min(maxDetails,details.getMeasuredHeight())));
+        margin(sheet,button("继续阅读",false,dialog::dismiss),14);
+        dialog.setContentView(sheet);
+        Window window=dialog.getWindow();
+        if(window!=null){
+            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));window.setGravity(Gravity.BOTTOM);
+            window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT);
+            window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);window.setDimAmount(.28f);
+        }
+        characterSheet=dialog;
+        dialog.setOnDismissListener(ignored->{if(characterSheet==dialog){characterSheet=null;clearActiveRange();}});
+        dialog.setOnShowListener(ignored->{Window shown=dialog.getWindow();if(shown!=null)shown.setLayout(-1,-2);});
+        dialog.show();animate(sheet);
     }
 
     private void toggleReview(String key, JSONObject card) {
@@ -727,6 +759,7 @@ public class ReadingActivity extends BaseActivity {
     private void clearActiveRange() { if (bodyView != null) bodyView.clearActiveRange(); }
     private void dismissBubble() {
         if (bubble != null) { PopupWindow previous = bubble; bubble = null; previous.setOnDismissListener(null); previous.dismiss(); }
+        bubbleStart=-1;bubbleEnd=-1;bubbleDismissedAt=0;
         clearActiveRange();
     }
 

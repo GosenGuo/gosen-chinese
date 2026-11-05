@@ -1,6 +1,7 @@
 package com.gosen.chinese;
 
 import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
@@ -90,7 +91,7 @@ public class ReadingVisualTest {
             PopupWindow popup = ReflectionHelpers.getField(activity, "bubble");
             assertNotNull(popup); snapshot(activity, "reader-context-bubble", popup.getContentView());
             popup.getContentView().performClick();
-            AlertDialog dialog = ShadowAlertDialog.getLatestAlertDialog();
+            Dialog dialog = ReflectionHelpers.getField(activity,"characterSheet");
             assertNotNull(dialog); dialog.dismiss();
             click(activity, "背诵"); click(activity, "关键词填空"); snapshot(activity, "reader-recite", null);
         }

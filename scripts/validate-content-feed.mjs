@@ -3,16 +3,23 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import crypto from 'node:crypto';
+import {validateCharacterNotes} from './complete-character-annotations.mjs';
 
 export const text=(value,name)=>{assert.equal(typeof value,'string',name+' must be text');assert.ok(value.trim(),name+' must not be empty');return value;};
 export const hanCount=value=>(String(value).match(/\p{Script=Han}/gu)||[]).length;
-export const fingerprint=value=>crypto.createHash('sha256').update(typeof value==='string'?value:JSON.stringify(value)).digest('hex');
+function canonical(value){
+  if(Array.isArray(value))return '['+value.map(canonical).join(',')+']';
+  if(value&&typeof value==='object')return '{'+Object.keys(value).sort().map(key=>JSON.stringify(key)+':'+canonical(value[key])).join(',')+'}';
+  return JSON.stringify(value);
+}
+export const fingerprint=value=>crypto.createHash('sha256').update(typeof value==='string'?value:canonical(value)).digest('hex');
 export function validateItem(item){
   assert(item&&typeof item==='object'&&!Array.isArray(item));
   assert.match(text(item.id,'id'),/^[A-Za-z0-9_-]{1,140}$/);
   assert(['classics','modern','classical','essay'].includes(item.module),'unknown module');
   for(const field of ['title','body','sourceLabel','verification'])text(item[field],field);
   assert(item.body.length>=25&&item.body.length<=100000&&!item.body.includes('\ufffd'),'invalid body');
+  if(item.characterNotes!==undefined)validateCharacterNotes(item);
   const notes=item.notes||[],translations=item.translations||[];
   assert(Array.isArray(notes)&&Array.isArray(translations));
   const noteKeys=new Set();

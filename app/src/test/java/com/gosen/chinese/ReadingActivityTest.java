@@ -1,6 +1,7 @@
 package com.gosen.chinese;
 
 import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Looper;
@@ -16,6 +17,7 @@ import android.widget.EditText;
 import android.widget.PopupWindow;
 import android.widget.RadioGroup;
 import android.widget.TextView;
+import android.widget.Switch;
 import org.json.JSONObject;
 import org.junit.Before;
 import org.junit.Test;
@@ -86,7 +88,7 @@ public class ReadingActivityTest {
         ActivityController<ReadingActivity> controller = open("classic-01");
         ReadingActivity activity = controller.get();
         JSONObject article = activity.repository.find("classic-01");
-        AnnotationResolver.ResolvedNote first = AnnotationResolver.resolve(article).get(0);
+        AnnotationResolver.ResolvedNote first = CharacterAnnotationResolver.resolve(article).get(0);
         String key = first.key("classic-01");
         AnnotatedTextView body = activity.content.findViewWithTag("articleBody");
         Spanned text = (Spanned) body.getText();
@@ -98,8 +100,8 @@ public class ReadingActivityTest {
         assertEquals(first.start, (int) ReflectionHelpers.getField(body, "activeStart"));
         assertEquals(first.end, (int) ReflectionHelpers.getField(body, "activeEnd"));
         popup.getContentView().performClick();
-        AlertDialog detail = ShadowAlertDialog.getLatestAlertDialog();
-        TextView add = named(detail.getWindow().getDecorView(), "加入字词复习");
+        Dialog detail = ReflectionHelpers.getField(activity,"characterSheet");
+        Switch add = detail.findViewById(android.R.id.content).findViewWithTag("characterReview");
         assertNotNull(add); add.performClick();
         assertTrue(activity.store.hasReview(key));
         detail.dismiss(); settle(activity);
@@ -107,9 +109,9 @@ public class ReadingActivityTest {
         assertEquals(1, ((List<?>) ReflectionHelpers.getField(body, "marked")).size());
         spans[0].onClick(body);
         popup = ReflectionHelpers.getField(activity, "bubble"); popup.getContentView().performClick();
-        detail = ShadowAlertDialog.getLatestAlertDialog();
-        TextView remove = named(detail.getWindow().getDecorView(), "已加入复习 · 点击移出");
-        assertNotNull(remove); remove.performClick(); assertFalse(activity.store.hasReview(key));
+        detail = ReflectionHelpers.getField(activity,"characterSheet");
+        Switch remove = detail.findViewById(android.R.id.content).findViewWithTag("characterReview");
+        assertNotNull(remove);assertTrue(remove.isChecked()); remove.performClick(); assertFalse(activity.store.hasReview(key));
         detail.dismiss(); settle(activity);
         assertEquals(-1, (int) ReflectionHelpers.getField(body, "activeStart"));
         assertTrue(((List<?>) ReflectionHelpers.getField(body, "marked")).isEmpty());
@@ -195,16 +197,19 @@ public class ReadingActivityTest {
         controller.pause().stop().destroy();
     }
 
-    @Test public void realUnannotatedTapShowsAvailableTranslationAndDraggingDoesNotOpenFeedback() {
+    @Test public void realCharacterTapShowsOnlyItsMeaningAndDraggingDoesNotOpenFeedback() {
         try (ActivityController<ReadingActivity> controller = open("classical-oil")) {
             ReadingActivity activity = controller.get();
             AnnotatedTextView body = activity.content.findViewWithTag("articleBody");
-            int offset = firstUnannotatedLetter(body);
+            AnnotationResolver.ResolvedNote first=CharacterAnnotationResolver.resolve(activity.repository.find("classical-oil")).get(0);
+            int offset = first.start;
             touch(body, offset, false); settle(activity);
             PopupWindow popup = ReflectionHelpers.getField(activity, "bubble");
             assertNotNull(popup); assertTrue(popup.isShowing());
-            assertNotNull(named(popup.getContentView(), "译文"));
-            assertEquals(0, (int) ReflectionHelpers.getField(body, "activeStart"));
+            assertNotNull(named(popup.getContentView(), first.note.optString("quote")));
+            assertNull(named(popup.getContentView(), "译文"));
+            assertEquals(first.start, (int) ReflectionHelpers.getField(body, "activeStart"));
+            assertEquals(first.end, (int) ReflectionHelpers.getField(body, "activeEnd"));
             assertTrue(activity.store.reviews().isEmpty());
             popup.dismiss();
             assertEquals(-1, (int) ReflectionHelpers.getField(body, "activeStart"));
@@ -238,10 +243,23 @@ public class ReadingActivityTest {
             article.put("notes", new org.json.JSONArray()); article.put("translations", new org.json.JSONArray());
             ReflectionHelpers.callInstanceMethod(activity, "refresh"); settle(activity);
             AnnotatedTextView body = activity.content.findViewWithTag("articleBody");
-            touch(body, firstUnannotatedLetter(body), false); settle(activity);
+            touch(body, 0, false); settle(activity);
             PopupWindow popup = ReflectionHelpers.getField(activity, "bubble");
-            assertNotNull(popup); assertNotNull(named(popup.getContentView(), "此处暂未收录注释"));
+            assertNotNull(popup); assertNotNull(named(popup.getContentView(), "此字释义待补充"));
             assertTrue(activity.store.reviews().isEmpty());
+        }
+    }
+
+    @Test public void tappingTheSameCharacterAgainOpensABottomSheetWithoutCollectingIt() {
+        try(ActivityController<ReadingActivity> controller=open("classic-01")){
+            ReadingActivity activity=controller.get();AnnotatedTextView body=activity.content.findViewWithTag("articleBody");
+            Spanned text=(Spanned)body.getText();ClickableSpan first=text.getSpans(0,text.length(),ClickableSpan.class)[0];
+            first.onClick(body);first.onClick(body);settle(activity);
+            Dialog sheet=ReflectionHelpers.getField(activity,"characterSheet");assertNotNull(sheet);assertTrue(sheet.isShowing());
+            assertEquals(android.view.Gravity.BOTTOM,sheet.getWindow().getAttributes().gravity&android.view.Gravity.VERTICAL_GRAVITY_MASK);
+            assertNotNull(named(sheet.getWindow().getDecorView(),"译文"));
+            assertTrue(activity.store.reviews().isEmpty());
+            sheet.dismiss();settle(activity);assertEquals(-1,(int)ReflectionHelpers.getField(body,"activeStart"));
         }
     }
 

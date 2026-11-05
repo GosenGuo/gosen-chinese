@@ -1,4 +1,6 @@
 .gradle/
+.wrangler/
+.dev.vars
 **/build/
 local.properties
 *.jks

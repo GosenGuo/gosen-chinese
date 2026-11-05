@@ -23,10 +23,21 @@ public class MainActivity extends BaseActivity {
     private final Set<String> round=new HashSet<>();
     private final List<JSONObject> roundCards=new ArrayList<>();
     private AppUpdateManager updater;
+    private ContentRefillManager refill;
     private boolean initialized;
     private boolean resumed;
     private LinearLayout libraryList;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final Runnable contentPoll = new Runnable() {
+        @Override public void run() {
+            if (!resumed) return;
+            repository.checkForUpdates((success, changed) -> {
+                if (changed && resumed && !isFinishing() && !isDestroyed()) refreshContentViews();
+                if (resumed && refill != null) refill.checkInventory(repository,store);
+            });
+            mainHandler.postDelayed(this,15L*60L*1000L);
+        }
+    };
     private final Runnable dayRollover = new Runnable() {
         @Override public void run() { if (resumed) { if (page.equals("home")) refreshContentViews(); scheduleRollover(); } }
     };
@@ -35,10 +46,8 @@ public class MainActivity extends BaseActivity {
         super.onCreate(saved);
         if(saved!=null){page=saved.getString("page","home");module=saved.getString("module","classics");filter=saved.getString("filter","");}
         updater=new AppUpdateManager(this);
+        refill=new ContentRefillManager(this);
         initialized=true; render(); updater.checkForUpdates();
-        repository.checkForUpdates((success, changed) -> {
-            if(changed && resumed && !isFinishing() && !isDestroyed()) refreshContentViews();
-        });
     }
     @Override protected void onResume(){
         super.onResume();
@@ -50,11 +59,17 @@ public class MainActivity extends BaseActivity {
             int y=scroll.getScrollY();render();scroll.post(()->scroll.scrollTo(0,y));
             updater.resumePendingInstall();
             updater.checkForUpdates();
+            repository.checkForUpdates((success, changed) -> {
+                if(changed && resumed && !isFinishing() && !isDestroyed()) refreshContentViews();
+                if(resumed && refill!=null)refill.checkInventory(repository,store);
+            });
         }
         scheduleRollover();
+        mainHandler.removeCallbacks(contentPoll);
+        mainHandler.postDelayed(contentPoll,15L*60L*1000L);
     }
-    @Override protected void onPause(){resumed=false;mainHandler.removeCallbacks(dayRollover);super.onPause();}
-    @Override protected void onDestroy(){mainHandler.removeCallbacks(dayRollover);if(updater!=null)updater.close();if(repository!=null)repository.close();super.onDestroy();}
+    @Override protected void onPause(){resumed=false;mainHandler.removeCallbacks(dayRollover);mainHandler.removeCallbacks(contentPoll);super.onPause();}
+    @Override protected void onDestroy(){mainHandler.removeCallbacks(dayRollover);mainHandler.removeCallbacks(contentPoll);if(updater!=null)updater.close();if(refill!=null)refill.close();if(repository!=null)repository.close();super.onDestroy();}
     @Override protected void onSaveInstanceState(Bundle state){
         state.putString("page",page);state.putString("module",module);state.putString("filter",filter);super.onSaveInstanceState(state);
     }
