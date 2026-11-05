@@ -206,8 +206,22 @@ public final class StudyStore {
     private void markCompleteInternal(String articleId) {
         JSONObject completed = state.optJSONObject("completed");
         if (!completed.has(articleId)) put(completed, articleId, clock.getAsLong());
+        put(object(state.optJSONObject("drafts"), articleId), "daily.completed:" + today(), "true");
         touchDay();
     }
+
+    public boolean completedOn(String articleId, LocalDate day) {
+        if (articleId == null || day == null) return false;
+        synchronized (GLOBAL_LOCK) {
+            beginAccess();
+            try {
+                JSONObject record = state.optJSONObject("drafts").optJSONObject(articleId);
+                return record != null && "true".equals(record.optString("daily.completed:" + day));
+            } finally { accessDepth--; }
+        }
+    }
+
+    public boolean completedToday(String articleId) { return completedOn(articleId, today()); }
 
     public int completedCount() {
         synchronized (GLOBAL_LOCK) {

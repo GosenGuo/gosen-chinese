@@ -95,13 +95,25 @@ public class ReadingActivityTest {
         spans[0].onClick(body);
         PopupWindow popup = ReflectionHelpers.getField(activity, "bubble");
         assertNotNull(popup); assertTrue(popup.isShowing()); assertFalse(activity.store.hasReview(key));
+        assertEquals(first.start, (int) ReflectionHelpers.getField(body, "activeStart"));
+        assertEquals(first.end, (int) ReflectionHelpers.getField(body, "activeEnd"));
         popup.getContentView().performClick();
         AlertDialog detail = ShadowAlertDialog.getLatestAlertDialog();
         TextView add = named(detail.getWindow().getDecorView(), "加入字词复习");
         assertNotNull(add); add.performClick();
         assertTrue(activity.store.hasReview(key));
-        add.performClick(); assertFalse(activity.store.hasReview(key));
-        detail.dismiss(); controller.pause().stop().destroy();
+        detail.dismiss(); settle(activity);
+        assertEquals(-1, (int) ReflectionHelpers.getField(body, "activeStart"));
+        assertEquals(1, ((List<?>) ReflectionHelpers.getField(body, "marked")).size());
+        spans[0].onClick(body);
+        popup = ReflectionHelpers.getField(activity, "bubble"); popup.getContentView().performClick();
+        detail = ShadowAlertDialog.getLatestAlertDialog();
+        TextView remove = named(detail.getWindow().getDecorView(), "已加入复习 · 点击移出");
+        assertNotNull(remove); remove.performClick(); assertFalse(activity.store.hasReview(key));
+        detail.dismiss(); settle(activity);
+        assertEquals(-1, (int) ReflectionHelpers.getField(body, "activeStart"));
+        assertTrue(((List<?>) ReflectionHelpers.getField(body, "marked")).isEmpty());
+        controller.pause().stop().destroy();
     }
 
     @Test public void practiceSubmissionRetainsFirstAnswerAndPersistsSelfAssessment() throws Exception {
@@ -191,24 +203,44 @@ public class ReadingActivityTest {
             touch(body, offset, false); settle(activity);
             PopupWindow popup = ReflectionHelpers.getField(activity, "bubble");
             assertNotNull(popup); assertTrue(popup.isShowing());
-            assertNotNull(named(popup.getContentView(), "本句参考译文"));
+            assertNotNull(named(popup.getContentView(), "译文"));
+            assertEquals(0, (int) ReflectionHelpers.getField(body, "activeStart"));
             assertTrue(activity.store.reviews().isEmpty());
             popup.dismiss();
+            assertEquals(-1, (int) ReflectionHelpers.getField(body, "activeStart"));
             touch(body, offset, true); settle(activity);
-            assertSame(popup, ReflectionHelpers.getField(activity, "bubble"));
+            assertNull(ReflectionHelpers.getField(activity, "bubble"));
             assertFalse(popup.isShowing());
             assertTrue(activity.store.reviews().isEmpty());
         }
     }
 
-    @Test public void realUnannotatedTapClearlyReportsMissingAnnotationWithoutInventingMeaning() {
+    @Test public void modernReadingHasNoWordOrSentenceBubblesButKeepsEvidenceHighlighting() {
         try (ActivityController<ReadingActivity> controller = open("modern-lamp")) {
             ReadingActivity activity = controller.get();
             AnnotatedTextView body = activity.content.findViewWithTag("articleBody");
+            assertTrue(body.isTextSelectable());
+            Spanned text = (Spanned) body.getText();
+            assertEquals(0, text.getSpans(0, text.length(), ClickableSpan.class).length);
+            touch(body, firstUnannotatedLetter(body), false); settle(activity);
+            assertNull(ReflectionHelpers.getField(activity, "bubble"));
+            body.highlight(java.util.Collections.singletonList("小桥的路灯坏了第三天"));
+            Spanned highlighted = (Spanned) body.getText();
+            assertEquals(1, highlighted.getSpans(0, highlighted.length(), android.text.style.BackgroundColorSpan.class).length);
+            assertTrue(activity.store.reviews().isEmpty());
+        }
+    }
+
+    @Test public void incompleteAncientDataClearlyReportsMissingContent() throws Exception {
+        try (ActivityController<ReadingActivity> controller = open("classical-oil")) {
+            ReadingActivity activity = controller.get();
+            JSONObject article = ReflectionHelpers.getField(activity, "article");
+            article.put("notes", new org.json.JSONArray()); article.put("translations", new org.json.JSONArray());
+            ReflectionHelpers.callInstanceMethod(activity, "refresh"); settle(activity);
+            AnnotatedTextView body = activity.content.findViewWithTag("articleBody");
             touch(body, firstUnannotatedLetter(body), false); settle(activity);
             PopupWindow popup = ReflectionHelpers.getField(activity, "bubble");
-            assertNotNull(popup); assertTrue(popup.isShowing());
-            assertNotNull(named(popup.getContentView(), "此处暂未收录注释"));
+            assertNotNull(popup); assertNotNull(named(popup.getContentView(), "此处暂未收录注释"));
             assertTrue(activity.store.reviews().isEmpty());
         }
     }

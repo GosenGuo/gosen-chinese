@@ -1,0 +1,67 @@
+name: Auto content update
+
+on:
+  schedule:
+    # 00:20 in Asia/Shanghai; GitHub may delay scheduled runs during busy periods.
+    - cron: '20 16 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-content-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GENERATION_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate existing library and offline generation safeguards
+        run: |
+          node scripts/validate-content-feed.mjs
+          node --test scripts/test-content-feed.mjs scripts/test-daily-content.mjs
+      - name: Reserve the single daily generation budget
+        id: reservation
+        run: node scripts/generate-daily-content.mjs reserve
+      - name: Commit reservation before any paid request
+        if: steps.reservation.outputs.eligible == 'true'
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/daily-generation-ledger.json
+          git commit -m 'content: reserve one bounded daily generation batch'
+          git pull --rebase origin main
+          git push origin HEAD:main
+      - name: Generate and validate all three daily items
+        if: steps.reservation.outputs.eligible == 'true'
+        env:
+          PACKY_API_KEY: ${{ secrets.PACKY_API_KEY }}
+          PACKY_API_BASE_URL: https://www.packyapi.ai
+          PACKY_API_MODEL: gpt-6.1-sol
+          PACKY_API_PROTOCOL: responses
+          CONTENT_STUDY_DAY: ${{ steps.reservation.outputs.study_day }}
+        run: node scripts/generate-daily-content.mjs generate
+      - name: Commit successful library or failed-attempt ledger
+        if: always() && steps.reservation.outputs.eligible == 'true'
+        run: |
+          set -euo pipefail
+          node scripts/validate-content-feed.mjs
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/library.json docs/daily-generation-ledger.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'content: save bounded daily update result'
+          for attempt in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then exit 0; fi
+          done
+          exit 1

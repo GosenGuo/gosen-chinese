@@ -3,6 +3,13 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 const project=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const file=path.join(project,'app/src/main/assets/classics.json');
+if(fs.existsSync(file)&&!process.argv.includes('--reset-reference-seed')){
+ const existing=JSON.parse(fs.readFileSync(file,'utf8'));
+ if(existing.items?.length===60&&existing.items.every(item=>item.annotationCoverage?.complete)){
+  console.log('Preserved full annotations. Use --reset-reference-seed only to deliberately rebuild the legacy seed.');
+  process.exit(0);
+ }
+}
 const sourceFile=path.join(project,'scripts/sources/classics-originals.json');
 const data=JSON.parse(fs.readFileSync(fs.existsSync(sourceFile)?sourceFile:file,'utf8'));
 const byId=n=>data.items.find(x=>x.id===`classic-${String(n).padStart(2,'0')}`);

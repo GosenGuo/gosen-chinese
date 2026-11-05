@@ -3,6 +3,8 @@ package com.gosen.chinese;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.res.ColorStateList;
+import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -24,16 +26,94 @@ public abstract class BaseActivity extends Activity {
     protected ScrollView scroll;
     protected int PAPER,SURFACE,INK,MUTED,GREEN,SOFT,LINE,GOLD,RED;
     protected boolean dark;
+    private boolean appliedDark;
+    private boolean themeRecreationRequested;
+    private int restoredScrollY = -1;
 
     @Override protected void onCreate(Bundle saved) {
-        super.onCreate(saved);
+        // The native theme must be selected before Activity creates any widget or dialog.
         store = new StudyStore(this);
+        appliedDark = resolvesDark(themeMode(), getResources().getConfiguration());
+        setTheme(appliedDark ? R.style.AppTheme_Dark : R.style.AppTheme);
+        super.onCreate(saved);
+        restoredScrollY = saved == null ? -1 : saved.getInt("appearance.scrollY", -1);
         repository = new ContentRepository(this);
         buildShell();
     }
 
+    /** Explicit legacy choices remain explicit; new installations follow the system. */
+    protected String themeMode() {
+        String mode = store.setting("appearanceMode", "");
+        if (mode.equals("system") || mode.equals("light") || mode.equals("dark")) return mode;
+        String legacy = store.setting("dark", "");
+        mode = legacy.equals("true") ? "dark" : legacy.equals("false") ? "light" : "system";
+        store.putSetting("appearanceMode", mode);
+        return mode;
+    }
+
+    static boolean resolvesDark(String mode, Configuration configuration) {
+        return mode.equals("dark") || (mode.equals("system")
+                && (configuration.uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES);
+    }
+
+    protected String appearanceLabel() {
+        switch (themeMode()) { case "light": return "浅色"; case "dark": return "深色"; default: return "跟随系统"; }
+    }
+
+    protected boolean isThemeChanged() {
+        return themeRecreationRequested || appliedDark != resolvesDark(themeMode(), getResources().getConfiguration());
+    }
+
+    private void requestThemeRecreation() {
+        if (!themeRecreationRequested && !isFinishing() && !isDestroyed()) {
+            themeRecreationRequested = true;
+            dismissKeyboard();
+            recreate();
+        }
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        if (isThemeChanged()) requestThemeRecreation();
+    }
+
+    @Override public void onConfigurationChanged(Configuration configuration) {
+        super.onConfigurationChanged(configuration);
+        if (appliedDark != resolvesDark(themeMode(), configuration)) requestThemeRecreation();
+    }
+
+    @Override protected void onSaveInstanceState(Bundle state) {
+        if (scroll != null) state.putInt("appearance.scrollY", scroll.getScrollY());
+        super.onSaveInstanceState(state);
+    }
+
+    @Override protected void onPostResume() {
+        super.onPostResume();
+        if (restoredScrollY >= 0 && !themeRecreationRequested) {
+            final int position = restoredScrollY;
+            restoredScrollY = -1;
+            scroll.post(() -> scroll.scrollTo(0, position));
+        }
+    }
+
+    protected void chooseAppearance(Runnable refresh) {
+        String[] modes = {"system", "light", "dark"};
+        String[] labels = {"跟随系统", "浅色", "深色"};
+        int selected = java.util.Arrays.asList(modes).indexOf(themeMode());
+        dialogBuilder().setTitle("外观").setSingleChoiceItems(labels, selected, (dialog, which) -> {
+            store.putSetting("appearanceMode", modes[which]);
+            dialog.dismiss();
+            if (isThemeChanged()) requestThemeRecreation();
+            else refresh.run();
+        }).setNegativeButton("取消", null).show();
+    }
+
+    protected AlertDialog.Builder dialogBuilder() {
+        return new AlertDialog.Builder(this, dark ? R.style.AppDialog_Dark : R.style.AppDialog_Light);
+    }
+
     protected void buildShell() {
-        dark = "true".equals(store.setting("dark", "false"));
+        dark = appliedDark;
         PAPER = color(dark ? "#151C18" : "#F7F4ED");
         SURFACE = color(dark ? "#202B24" : "#FFFEFA");
         INK = color(dark ? "#E9EDE5" : "#29342D");
@@ -102,10 +182,19 @@ public abstract class BaseActivity extends Activity {
     }
     protected EditText input(String hint,String value,boolean multi) {
         EditText edit=new EditText(this);edit.setHint(hint);edit.setText(value);edit.setTextColor(INK);edit.setHintTextColor(MUTED);
+        edit.setHighlightColor(dark ? 0x6674A17D : 0x50315F4A);
+        edit.setLinkTextColor(GREEN);
         edit.setTextSize(16);edit.setPadding(dp(15),dp(13),dp(15),dp(13));edit.setBackground(rounded(SURFACE,12));
         edit.setGravity(Gravity.TOP|Gravity.LEFT); edit.setInputType(android.text.InputType.TYPE_CLASS_TEXT |
                 (multi ? android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE | android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES : 0));
         edit.setMinLines(multi ? 3 : 1);return edit;
+    }
+    protected void styleChoice(CompoundButton choice) {
+        choice.setTextColor(INK);
+        choice.setButtonTintList(new ColorStateList(new int[][]{
+                new int[]{android.R.attr.state_enabled, android.R.attr.state_checked},
+                new int[]{android.R.attr.state_enabled}, new int[]{}
+        }, new int[]{GREEN, MUTED, LINE}));
     }
     protected interface Change { void accept(String value); }
     protected TextWatcher watcher(Change change) {
@@ -116,10 +205,11 @@ public abstract class BaseActivity extends Activity {
         };
     }
     protected void info(String title,String message) {
-        AlertDialog dialog=new AlertDialog.Builder(this).setTitle(title).setMessage(message).setPositiveButton("知道了",null).show();
+        AlertDialog dialog=dialogBuilder().setTitle(title).setMessage(message).setPositiveButton("知道了",null).show();
         TextView body=dialog.findViewById(android.R.id.message);
         if(body!=null){
             android.text.util.Linkify.addLinks(body,android.text.util.Linkify.WEB_URLS);
+            body.setLinkTextColor(GREEN);
             body.setMovementMethod(android.text.method.LinkMovementMethod.getInstance());
         }
     }
@@ -130,7 +220,7 @@ public abstract class BaseActivity extends Activity {
     protected int fontSize() { try { return Math.max(18,Math.min(24,Integer.parseInt(store.setting("fontSize","20")))); } catch(Exception e){return 20;} }
     protected void chooseFont(Runnable refresh) {
         String[] labels={"18 · 紧凑","20 · 标准","22 · 舒展","24 · 大字"};int[] sizes={18,20,22,24};
-        new AlertDialog.Builder(this).setTitle("正文字号").setSingleChoiceItems(labels,(fontSize()-18)/2,(dialog,which)->{
+        dialogBuilder().setTitle("正文字号").setSingleChoiceItems(labels,(fontSize()-18)/2,(dialog,which)->{
             store.putSetting("fontSize",String.valueOf(sizes[which]));dialog.dismiss();refresh.run();
         }).setNegativeButton("取消",null).show();
     }

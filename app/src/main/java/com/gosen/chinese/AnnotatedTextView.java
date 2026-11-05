@@ -30,6 +30,10 @@ public class AnnotatedTextView extends TextView {
     private final List<AnnotationResolver.ResolvedNote> marked = new ArrayList<>();
     private final Paint wavePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path wave = new Path();
+    private final Paint activePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Path activePath = new Path();
+    private int activeStart = -1, activeEnd = -1;
+    private int evidenceColor = 0x50D4B36B;
     private int tappedOffset;
     private String articleId;
     private StudyStore store;
@@ -76,12 +80,40 @@ public class AnnotatedTextView extends TextView {
 
     public void setOnUnannotatedTapListener(UnannotatedTapListener listener) { unannotatedTapListener = listener; }
 
+    public void setAnnotationColors(int waveColor, int activeColor, int evidenceColor) {
+        wavePaint.setColor(waveColor); activePaint.setColor(activeColor); this.evidenceColor = evidenceColor;
+        invalidate();
+    }
+
+    public void setActiveRange(int start, int end) {
+        activeStart = Math.max(0, Math.min(start, getText().length()));
+        activeEnd = Math.max(activeStart, Math.min(end, getText().length()));
+        if (activeStart == activeEnd) { activeStart = -1; activeEnd = -1; }
+        invalidate();
+    }
+
+    public void clearActiveRange() { activeStart = -1; activeEnd = -1; invalidate(); }
+
+    /** Range geometry shares the layout that draws and receives taps on the original text. */
+    public RectF anchorForRange(int start, int end, int nearOffset) {
+        Layout layout = getLayout();
+        if (layout == null || start < 0 || end <= start || end > getText().length()) return new RectF();
+        int offset = Math.max(start, Math.min(end - 1, nearOffset));
+        int line = layout.getLineForOffset(offset);
+        RectF bounds = selectionBounds(layout, Math.max(start, layout.getLineStart(line)), Math.min(end, layout.getLineEnd(line)));
+        int[] location = new int[2]; getLocationOnScreen(location);
+        return new RectF(location[0] + getTotalPaddingLeft() + bounds.left - getScrollX(),
+                location[1] + getTotalPaddingTop() + layout.getLineTop(line) - getScrollY(),
+                location[0] + getTotalPaddingLeft() + bounds.right - getScrollX(),
+                location[1] + getTotalPaddingTop() + layout.getLineBottom(line) - getScrollY());
+    }
+
     public void highlight(List<String> quotes) {
         SpannableString text = new SpannableString(getText());
         for (BackgroundColorSpan span : text.getSpans(0, text.length(), BackgroundColorSpan.class)) text.removeSpan(span);
         for (String quote : quotes) {
             int start = text.toString().indexOf(quote);
-            if (start >= 0 && !quote.isEmpty()) text.setSpan(new BackgroundColorSpan(0x50D4B36B),
+            if (start >= 0 && !quote.isEmpty()) text.setSpan(new BackgroundColorSpan(evidenceColor),
                     start, start + quote.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         }
         setText(text);
@@ -156,8 +188,13 @@ public class AnnotatedTextView extends TextView {
     }
 
     @Override protected void onDraw(Canvas canvas) {
-        super.onDraw(canvas);
         Layout layout = getLayout();
+        if (layout != null && activeStart >= 0 && activeEnd > activeStart && activeEnd <= getText().length()) {
+            activePath.reset(); layout.getSelectionPath(activeStart, activeEnd, activePath);
+            canvas.save(); canvas.translate(getTotalPaddingLeft() - getScrollX(), getTotalPaddingTop() - getScrollY());
+            canvas.drawPath(activePath, activePaint); canvas.restore();
+        }
+        super.onDraw(canvas);
         if (layout == null) return;
         float density = getResources().getDisplayMetrics().density;
         canvas.save();

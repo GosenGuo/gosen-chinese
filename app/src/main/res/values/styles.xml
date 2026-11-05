@@ -3,11 +3,70 @@
     <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:colorAccent">#315F4A</item>
+        <item name="android:colorControlActivated">#315F4A</item>
+        <item name="android:colorControlNormal">#798176</item>
+        <item name="android:colorControlHighlight">#50315F4A</item>
+        <item name="android:textColorPrimary">#29342D</item>
+        <item name="android:textColorSecondary">#798176</item>
+        <item name="android:textColorHint">#798176</item>
+        <item name="android:textColorLink">#315F4A</item>
+        <item name="android:colorBackground">#F7F4ED</item>
+        <item name="android:colorBackgroundFloating">#FFFEFA</item>
+        <item name="android:alertDialogTheme">@style/AppDialog.Light</item>
+        <item name="android:forceDarkAllowed">false</item>
         <item name="android:navigationBarColor">#F7F4ED</item>
         <item name="android:statusBarColor">#F7F4ED</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowLightNavigationBar">true</item>
         <item name="android:windowActionModeOverlay">true</item>
         <item name="android:windowBackground">#F7F4ED</item>
+    </style>
+    <style name="AppTheme.Dark" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#A5CCAD</item>
+        <item name="android:colorControlActivated">#A5CCAD</item>
+        <item name="android:colorControlNormal">#A3B1A5</item>
+        <item name="android:colorControlHighlight">#6674A17D</item>
+        <item name="android:textColorPrimary">#E9EDE5</item>
+        <item name="android:textColorSecondary">#A3B1A5</item>
+        <item name="android:textColorHint">#A3B1A5</item>
+        <item name="android:textColorLink">#A5CCAD</item>
+        <item name="android:colorBackground">#151C18</item>
+        <item name="android:colorBackgroundFloating">#202B24</item>
+        <item name="android:alertDialogTheme">@style/AppDialog.Dark</item>
+        <item name="android:forceDarkAllowed">false</item>
+        <item name="android:navigationBarColor">#151C18</item>
+        <item name="android:statusBarColor">#151C18</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowBackground">#151C18</item>
+    </style>
+    <style name="AppDialog.Light" parent="android:style/Theme.Material.Light.Dialog.Alert">
+        <item name="android:colorAccent">#315F4A</item>
+        <item name="android:colorControlActivated">#315F4A</item>
+        <item name="android:colorControlNormal">#798176</item>
+        <item name="android:textColorPrimary">#29342D</item>
+        <item name="android:textColorSecondary">#798176</item>
+        <item name="android:textColorHint">#798176</item>
+        <item name="android:textColorLink">#315F4A</item>
+        <item name="android:colorBackground">#FFFEFA</item>
+        <item name="android:colorBackgroundFloating">#FFFEFA</item>
+        <item name="android:windowBackground">#FFFEFA</item>
+        <item name="android:forceDarkAllowed">false</item>
+    </style>
+    <style name="AppDialog.Dark" parent="android:style/Theme.Material.Dialog.Alert">
+        <item name="android:colorAccent">#A5CCAD</item>
+        <item name="android:colorControlActivated">#A5CCAD</item>
+        <item name="android:colorControlNormal">#A3B1A5</item>
+        <item name="android:colorControlHighlight">#6674A17D</item>
+        <item name="android:textColorPrimary">#E9EDE5</item>
+        <item name="android:textColorSecondary">#A3B1A5</item>
+        <item name="android:textColorHint">#A3B1A5</item>
+        <item name="android:textColorLink">#A5CCAD</item>
+        <item name="android:colorBackground">#202B24</item>
+        <item name="android:colorBackgroundFloating">#202B24</item>
+        <item name="android:windowBackground">#202B24</item>
+        <item name="android:forceDarkAllowed">false</item>
     </style>
 </resources>

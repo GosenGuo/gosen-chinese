@@ -1,8 +1,11 @@
 package com.gosen.chinese;
 
 import android.content.Intent;
+import android.content.res.ColorStateList;
 import android.graphics.Typeface;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.*;
@@ -10,6 +13,7 @@ import org.json.JSONObject;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
@@ -20,25 +24,50 @@ public class MainActivity extends BaseActivity {
     private final List<JSONObject> roundCards=new ArrayList<>();
     private AppUpdateManager updater;
     private boolean initialized;
+    private boolean resumed;
+    private LinearLayout libraryList;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final Runnable dayRollover = new Runnable() {
+        @Override public void run() { if (resumed) { if (page.equals("home")) refreshContentViews(); scheduleRollover(); } }
+    };
 
     @Override protected void onCreate(Bundle saved) {
         super.onCreate(saved);
-        if(saved!=null){page=saved.getString("page","home");module=saved.getString("module","classics");}
+        if(saved!=null){page=saved.getString("page","home");module=saved.getString("module","classics");filter=saved.getString("filter","");}
         updater=new AppUpdateManager(this);
         initialized=true; render(); updater.checkForUpdates();
+        repository.checkForUpdates((success, changed) -> {
+            if(changed && resumed && !isFinishing() && !isDestroyed()) refreshContentViews();
+        });
     }
     @Override protected void onResume(){
         super.onResume();
+        if(isThemeChanged())return;
+        resumed=true;
         if(initialized){
             // ReadingActivity writes the same store; always reload before the next mutation.
             store=new StudyStore(this);
             int y=scroll.getScrollY();render();scroll.post(()->scroll.scrollTo(0,y));
             updater.resumePendingInstall();
         }
+        scheduleRollover();
     }
-    @Override protected void onDestroy(){if(updater!=null)updater.close();super.onDestroy();}
+    @Override protected void onPause(){resumed=false;mainHandler.removeCallbacks(dayRollover);super.onPause();}
+    @Override protected void onDestroy(){mainHandler.removeCallbacks(dayRollover);if(updater!=null)updater.close();if(repository!=null)repository.close();super.onDestroy();}
     @Override protected void onSaveInstanceState(Bundle state){
-        state.putString("page",page);state.putString("module",module);super.onSaveInstanceState(state);
+        state.putString("page",page);state.putString("module",module);state.putString("filter",filter);super.onSaveInstanceState(state);
+    }
+    private void scheduleRollover(){
+        mainHandler.removeCallbacks(dayRollover);
+        long next=LocalDate.now().plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
+        mainHandler.postDelayed(dayRollover,Math.max(1000,next-System.currentTimeMillis()+100));
+    }
+    private void refreshContentViews(){
+        int y=scroll.getScrollY();
+        if(page.equals("home"))home();
+        else if(page.equals("library") && libraryList!=null)populate(libraryList);
+        else return;
+        scroll.post(()->scroll.scrollTo(0,y));
     }
     private void render(){
         switch(page){case "library":library();break;case "review":review();break;case "allReviews":allReviews();break;case "settings":settings();break;default:home();}
@@ -67,31 +96,40 @@ public class MainActivity extends BaseActivity {
         screen("home");
         LinearLayout mast=row();weighted(mast,text("拾文",28,INK,true));
         mast.addView(text(LocalDate.now().format(DateTimeFormatter.ofPattern("M月d日  E",Locale.CHINA)),12,MUTED,false));
-        content.addView(mast);gap(27);
+        content.addView(mast);gap(25);
+        DailyPlan plan=DailyPlan.today(repository,store);
+        int completed=plan.completedCount(store);
+        LinearLayout progress=row();weighted(progress,text("今日学习",19,INK,true));
+        TextView counter=text(completed+" / 3",19,GREEN,true);counter.setTag("dailyProgress");progress.addView(counter);content.addView(progress);
+        ProgressBar track=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);
+        track.setMax(3);track.setProgress(completed);track.setProgressTintList(ColorStateList.valueOf(GREEN));
+        track.setProgressBackgroundTintList(ColorStateList.valueOf(LINE));
+        LinearLayout.LayoutParams trackParams=new LinearLayout.LayoutParams(-1,dp(5));trackParams.topMargin=dp(14);content.addView(track,trackParams);gap(20);
+        for(DailyPlan.Task task:plan.tasks())dailyCard(task,plan);
+        gap(8);
+        LinearLayout extras=row();
+        smallButton(extras,"古诗文 · "+repository.items("classics").size()+"篇",false,()->{module="classics";filter="";library();});
+        smallButton(extras,"复习 · "+store.dueCount(),false,()->{round.clear();roundCards.clear();review();});
+        content.addView(extras);
         JSONObject recent=repository.find(store.lastArticle());
-        if(recent==null&&!repository.items("classics").isEmpty())recent=repository.items("classics").get(0);
-        final JSONObject featured=recent;
-        LinearLayout hero=card(GREEN);hero.setPadding(dp(24),dp(24),dp(24),dp(24));
-        hero.addView(text(store.lastArticle().isEmpty()?"今日 · 从一篇开始":"继续上次的阅读",12,PAPER,false));
-        TextView title=text(recent==null?"读有所思，写有所言":recent.optString("title"),29,PAPER,true);
-        title.setTypeface(Typeface.SERIF,Typeface.BOLD);margin(hero,title,20);
-        LinearLayout end=row();weighted(end,text(recent==null?"每日语文":recent.optString("author")+" / "+moduleName(recent.optString("module")),12,PAPER,false));
-        end.addView(text("开始阅读  →",13,PAPER,true));margin(hero,end,27);
-        hero.setOnClickListener(v->{if(featured!=null)open(featured);});content.addView(hero);gap(24);
-        LinearLayout stats=row();stat(stats,store.completedCount(),"已学篇目");stat(stats,store.dueCount(),"待复习");stat(stats,store.streak(),"连续学习");content.addView(stats);
-        gap(29);content.addView(text("四时读写",18,INK,true));gap(15);
-        LinearLayout first=row();tile(first,"古","古诗文",repository.items("classics").size()+" 篇","classics",SOFT,true);
-        tile(first,"读","现代文",repository.items("modern").size()+" 组训练","modern",SURFACE,false);content.addView(first);gap(12);
-        LinearLayout second=row();tile(second,"言","文言阅读",repository.items("classical").size()+" 组训练","classical",SURFACE,true);
-        tile(second,"写","每日作文","题目 · 范文 · 拆解","essay",dark?color("#3B3529"):color("#F0E8D8"),false);content.addView(second);
-        JSONObject essay=dailyEssay();
-        if(essay!=null){
-            gap(28);content.addView(text("今日作文",18,INK,true));gap(15);
-            LinearLayout item=card(SURFACE);item.addView(text(essay.optString("title"),18,INK,true));
-            margin(item,text(essay.optString("contentType","示范文")+"   →",12,MUTED,false),11);
-            item.setOnClickListener(v->open(essay));content.addView(item);
+        boolean alreadyToday=false;for(DailyPlan.Task task:plan.tasks())if(task.articleId.equals(store.lastArticle()))alreadyToday=true;
+        if(recent!=null && !alreadyToday){
+            gap(23);LinearLayout resume=card(SURFACE);resume.addView(text("继续上次阅读",12,MUTED,false));
+            margin(resume,text(recent.optString("title")+"  →",17,INK,true),10);
+            resume.setOnClickListener(v->open(recent));content.addView(resume);
         }
+        gap(24);LinearLayout stats=row();stat(stats,store.completedCount(),"已学篇目");stat(stats,store.dueCount(),"待复习");stat(stats,store.streak(),"连续学习");content.addView(stats);
         if(!repository.error().isEmpty()){gap(20);content.addView(text(repository.error(),13,RED,false));}
+    }
+    private void dailyCard(DailyPlan.Task task,DailyPlan plan){
+        boolean done=task.completed(store,plan.date());
+        LinearLayout item=card(done?SOFT:SURFACE);item.setPadding(dp(19),dp(18),dp(19),dp(18));item.setTag("daily:"+task.module);
+        String label=task.module.equals("modern")?"现代文阅读":task.module.equals("classical")?"文言文阅读":"每日作文";
+        LinearLayout top=row();weighted(top,text(label,13,GREEN,true));top.addView(text(done?"已完成 ✓":"未完成  →",12,done?GREEN:MUTED,done));item.addView(top);
+        TextView title=text(task.title.isEmpty()?"进入篇库选择":task.title,18,INK,true);title.setMaxLines(2);title.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        margin(item,title,13);item.setContentDescription(label+"，"+task.title+"，"+(done?"今天已完成":"今天未完成"));
+        item.setOnClickListener(v->{if(task.article!=null)open(task.article);else{module=task.module;filter="";library();}});
+        margin(content,item,12);
     }
     private void stat(LinearLayout parent,int value,String label){
         LinearLayout block=column();block.addView(text(String.valueOf(value),24,GREEN,true));margin(block,text(label,12,MUTED,false),5);
@@ -113,7 +151,7 @@ public class MainActivity extends BaseActivity {
         if(module.equals("classics")){
             TextView info=text("目录与版本  ↗",12,MUTED,false);info.setPadding(0,0,0,dp(18));info.setOnClickListener(v->info("古诗文目录",repository.catalogNote()));content.addView(info);
         }
-        LinearLayout list=column();content.addView(list);populate(list);
+        LinearLayout list=column();libraryList=list;content.addView(list);populate(list);
         search.addTextChangedListener(watcher(value->{filter=value;populate(list);}));
     }
     private void populate(LinearLayout list){
@@ -131,10 +169,6 @@ public class MainActivity extends BaseActivity {
             LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(-1,-2);params.bottomMargin=dp(11);list.addView(box,params);count++;
         }
         if(count==0)list.addView(text("没有找到相关篇目",15,MUTED,false));
-    }
-    private JSONObject dailyEssay(){
-        List<JSONObject> items=repository.items("essay");
-        return items.isEmpty()?null:items.get(Math.floorMod(LocalDate.now().toEpochDay(),items.size()));
     }
     private void review(){
         screen("review");heading("复习","");LinearLayout tabs=row();
@@ -185,7 +219,7 @@ public class MainActivity extends BaseActivity {
         LinearLayout summary=card(SOFT);summary.addView(text("Gosen 的语文书桌",23,GREEN,true));
         margin(summary,text("已学 "+store.completedCount()+" 篇  ·  积累 "+store.reviews().size()+" 项",14,MUTED,false),13);content.addView(summary);gap(22);
         settingsRow("正文字号",fontSize()+"",()->chooseFont(this::settings));
-        settingsRow("夜间阅读",dark?"已开启":"已关闭",()->{store.putSetting("dark",String.valueOf(!dark));buildShell();navigation=null;settings();});
+        settingsRow("外观",appearanceLabel(),()->chooseAppearance(this::settings));
         settingsRow("检查软件更新",BuildConfig.VERSION_NAME,()->updater.checkForUpdates(true));
         settingsRow("导出学习备份","→",()->startActivityForResult(new Intent(Intent.ACTION_CREATE_DOCUMENT)
                 .setType("application/json").addCategory(Intent.CATEGORY_OPENABLE).putExtra(Intent.EXTRA_TITLE,"拾文学习备份-"+LocalDate.now()+".json"),301));

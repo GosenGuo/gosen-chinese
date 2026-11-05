@@ -87,6 +87,7 @@ public class ReadingActivity extends BaseActivity {
 
     private boolean isEssay() { return article != null && "essay".equals(article.optString("module")); }
     private boolean isClassic() { return article != null && "classics".equals(article.optString("module")); }
+    private boolean isAncient() { return isClassic() || (article != null && "classical".equals(article.optString("module"))); }
     private String modeKey() { return testMode ? "test" : "learning"; }
     private String pageKey() { return modeKey() + ":" + page; }
     private String answerKey(String questionId) { return modeKey() + ":answer:" + questionId; }
@@ -178,12 +179,14 @@ public class ReadingActivity extends BaseActivity {
             content.addView(modes); gap(22);
         }
         bodyView = new AnnotatedTextView(this);
+        bodyView.setAnnotationColors(GOLD, dark ? 0x99618A6B : 0xB3C7DEC2, dark ? 0x607F713B : 0x50D4B36B);
         bodyView.setTextColor(INK); bodyView.setTextSize(fontSize());
         bodyView.setLineSpacing(dp(9), 1.22f); bodyView.setIncludeFontPadding(false);
         bodyView.setTypeface(Typeface.create("serif", Typeface.NORMAL));
-        boolean hints = !testMode || store.hasAttempt(articleId, true);
+        boolean hints = isAncient() && (!testMode || store.hasAttempt(articleId, true));
         bodyView.bind(article, store, hints, this::showNoteBubble);
         if (hints) bodyView.setOnUnannotatedTapListener(this::showUnannotatedFeedback);
+        if (!isAncient()) bodyView.setTextIsSelectable(true);
         bodyView.setTag("articleBody"); content.addView(bodyView);
         gap(26);
         JSONArray translations = article.optJSONArray("translations");
@@ -207,7 +210,7 @@ public class ReadingActivity extends BaseActivity {
         if (questions().length() > 0) content.addView(button("开始练习  ·  " + questions().length() + " 题", true, () -> navigate("questions")));
         else if (isClassic()) content.addView(button("逐句背诵", true, () -> navigate("recite")));
         gap(12);
-        content.addView(button(store.isCompleted(articleId) ? "已完成本篇" : "完成本篇阅读", false, () -> {
+        content.addView(button(store.completedToday(articleId) ? "今日已完成阅读" : "完成本篇阅读", false, () -> {
             store.markComplete(articleId); refresh();
         }));
     }
@@ -244,7 +247,7 @@ public class ReadingActivity extends BaseActivity {
                     RadioButton option = new RadioButton(this);
                     option.setId(View.generateViewId()); option.setTag(n);
                     option.setText((char) ('A' + n) + "  " + options.optString(n));
-                    option.setTextSize(16); option.setTextColor(INK);
+                    option.setTextSize(16); styleChoice(option);
                     option.setPadding(dp(2), dp(11), dp(2), dp(11));
                     choices.addView(option, new RadioGroup.LayoutParams(-1, -2));
                     if (selected == n) choices.check(option.getId());
@@ -288,7 +291,7 @@ public class ReadingActivity extends BaseActivity {
             JSONObject question = questions().optJSONObject(i);
             if (question != null && answers.optString(question.optString("id", "q" + i)).trim().isEmpty()) missing++;
         }
-        if (missing > 0) new AlertDialog.Builder(this).setTitle("还有 " + missing + " 题未作答")
+        if (missing > 0) dialogBuilder().setTitle("还有 " + missing + " 题未作答")
                 .setMessage("可以继续作答，也可以保留空题后对照解析。")
                 .setNegativeButton("继续作答", null).setPositiveButton("仍然提交", (dialog, which) -> commitAnswers(answers)).show();
         else commitAnswers(answers);
@@ -380,7 +383,7 @@ public class ReadingActivity extends BaseActivity {
             final int index = i;
             CheckBox check = new CheckBox(this);
             check.setText(point.optString("text") + "  （" + point.optInt("score") + "分）");
-            check.setTextSize(15); check.setTextColor(INK); check.setPadding(0, dp(8), 0, dp(8));
+            check.setTextSize(15); styleChoice(check); check.setPadding(0, dp(8), 0, dp(8));
             check.setChecked("true".equals(store.draft(articleId, selfKey(id, i))));
             check.setOnCheckedChangeListener((button, checked) -> {
                 store.putDraft(articleId, selfKey(id, index), String.valueOf(checked));
@@ -487,7 +490,7 @@ public class ReadingActivity extends BaseActivity {
 
     private void advanceRecitation(int count) {
         if (reciteIndex + 1 < count) { changeReciteIndex(reciteIndex + 1); return; }
-        new AlertDialog.Builder(this).setTitle("本轮已完成")
+        dialogBuilder().setTitle("本轮已完成")
                 .setMessage("已回忆 " + count + " 句，未掌握的句子可以在复习中继续练习。")
                 .setPositiveButton("完成本篇", (dialog, which) -> { store.markComplete(articleId); navigate("body"); })
                 .setNeutralButton("再来一轮", (dialog, which) -> changeReciteIndex(0)).setNegativeButton("留在这里", null).show();
@@ -501,7 +504,7 @@ public class ReadingActivity extends BaseActivity {
     private void chooseReciteSentence(List<String> units) {
         String[] labels = new String[units.size()];
         for (int i = 0; i < labels.length; i++) labels[i] = (i + 1) + "  " + units.get(i);
-        new AlertDialog.Builder(this).setTitle("选择背诵句段").setItems(labels, (dialog, which) -> changeReciteIndex(which)).show();
+        dialogBuilder().setTitle("选择背诵句段").setItems(labels, (dialog, which) -> changeReciteIndex(which)).show();
     }
 
     private List<String> reciteUnits() {
@@ -582,7 +585,7 @@ public class ReadingActivity extends BaseActivity {
         practice.setTag("essayPractice"); practice.setMinLines(5);
         practice.addTextChangedListener(watcher(value -> store.putDraft(articleId, "essay.practice", value)));
         content.addView(practice); gap(22);
-        content.addView(button(store.isCompleted(articleId) ? "今日作文已完成" : "完成今日作文", true, () -> {
+        content.addView(button(store.completedToday(articleId) ? "今日作文已完成" : "完成今日作文", true, () -> {
             store.markComplete(articleId); dismissKeyboard(); refresh();
         }));
     }
@@ -594,7 +597,7 @@ public class ReadingActivity extends BaseActivity {
         for (int i = 0; i < labels.length; i++) {
             String paragraph = paragraphs.get(i); labels[i] = (i + 1) + "  " + paragraph.substring(0, Math.min(30, paragraph.length())) + "…";
         }
-        new AlertDialog.Builder(this).setTitle("选择要积累的段落").setItems(labels, (dialog, which) -> collectEssayParagraph(paragraphs.get(which), which)).show();
+        dialogBuilder().setTitle("选择要积累的段落").setItems(labels, (dialog, which) -> collectEssayParagraph(paragraphs.get(which), which)).show();
     }
 
     private void collectEssayParagraph(String paragraph, int index) {
@@ -603,7 +606,7 @@ public class ReadingActivity extends BaseActivity {
         EditText note = input("适用话题、使用条件或我的改写", store.draft(articleId, "essay.collection:" + index), true);
         margin(box, note, 18); ScrollView scroller = new ScrollView(this); scroller.addView(box);
         String key = articleId + ":paragraph:" + index;
-        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("作文积累")
+        AlertDialog dialog = dialogBuilder().setTitle("作文积累")
                 .setView(scroller).setNegativeButton("取消", null).setPositiveButton("保存到复习", (window, which) -> {
                     String own = note.getText().toString(); store.putDraft(articleId, "essay.collection:" + index, own);
                     store.saveReview(json("key", key, "type", "writing", "title", article.optString("title") + " · 段落" + (index + 1),
@@ -615,26 +618,30 @@ public class ReadingActivity extends BaseActivity {
     }
 
     private void showNoteBubble(AnnotationResolver.ResolvedNote resolved, RectF anchor) {
+        if (!isAncient()) return;
         JSONObject note = resolved.note;
         showTextBubble(note.optString("quote") + "  ·  " + note.optString("meaning"), "点开查看完整释义", anchor,
-                () -> showNoteDetail(resolved));
+                () -> showNoteDetail(resolved), resolved.start, resolved.end);
     }
 
     private void showUnannotatedFeedback(int offset, RectF anchor) {
-        String sentence = sentenceAt(offset);
-        String translated = translationFor(sentence);
-        if (!translated.isEmpty()) {
+        if (!isAncient()) return;
+        TranslationRange matched = translationAt(offset);
+        if (matched != null) {
+            String sentence = matched.quote, translated = matched.translation;
             String preview = translated.length() > 72 ? translated.substring(0, 72) + "…" : translated;
-            showTextBubble("本句参考译文", preview + "\n点开查看完整句段", anchor, () -> {
-                AlertDialog.Builder dialog = new AlertDialog.Builder(this).setTitle("本句参考译文")
+            RectF sentenceAnchor = bodyView == null ? anchor : bodyView.anchorForRange(matched.start, matched.end, offset);
+            showTextBubble("译文", preview + "\n点开查看完整句段", sentenceAnchor, () -> {
+                if (bodyView != null) bodyView.setActiveRange(matched.start, matched.end);
+                AlertDialog.Builder dialog = dialogBuilder().setTitle("译文")
                         .setMessage(sentence + "\n\n" + translated).setPositiveButton("关闭", null);
                 if (!AnnotationResolver.resolve(article).isEmpty()) dialog.setNeutralButton("本篇重点词", (window, which) -> showCollectedNotes());
-                dialog.show();
-            });
+                AlertDialog shown = dialog.create(); shown.setOnDismissListener(window -> clearActiveRange()); shown.show();
+            }, matched.start, matched.end);
         } else {
             boolean hasNotes = !AnnotationResolver.resolve(article).isEmpty();
             showTextBubble("此处暂未收录注释", hasNotes ? "点开本篇已收录的重点词" : "点开查看内容来源", anchor,
-                    hasNotes ? this::showCollectedNotes : () -> sourceInfo(article));
+                    hasNotes ? this::showCollectedNotes : () -> sourceInfo(article), offset, Math.min(offset + 1, article.optString("body").length()));
         }
     }
 
@@ -642,12 +649,13 @@ public class ReadingActivity extends BaseActivity {
         List<AnnotationResolver.ResolvedNote> notes = AnnotationResolver.resolve(article);
         String[] labels = new String[notes.size()];
         for (int i = 0; i < labels.length; i++) labels[i] = notes.get(i).note.optString("quote") + "  ·  " + notes.get(i).note.optString("meaning");
-        new AlertDialog.Builder(this).setTitle("本篇重点词").setItems(labels, (dialog, which) -> showNoteDetail(notes.get(which)))
+        dialogBuilder().setTitle("本篇重点词").setItems(labels, (dialog, which) -> showNoteDetail(notes.get(which)))
                 .setNegativeButton("关闭", null).show();
     }
 
-    private void showTextBubble(String title, String hint, RectF anchor, Runnable action) {
+    private void showTextBubble(String title, String hint, RectF anchor, Runnable action, int activeStart, int activeEnd) {
         dismissBubble();
+        if (bodyView != null) bodyView.setActiveRange(activeStart, activeEnd);
         LinearLayout tip = column();
         tip.setPadding(dp(16), dp(12), dp(16), dp(12)); tip.setBackground(rounded(SURFACE, 14));
         tip.addView(text(title, 16, INK, true));
@@ -677,10 +685,12 @@ public class ReadingActivity extends BaseActivity {
         popup.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT)); popup.setElevation(dp(8)); popup.setOutsideTouchable(true);
         if (Build.VERSION.SDK_INT >= 29) popup.setTouchModal(false);
         frame.setOnClickListener(v -> { dismissBubble(); action.run(); });
+        popup.setOnDismissListener(() -> { if (bubble == popup) bubble = null; clearActiveRange(); });
         bubble = popup; popup.showAtLocation(shell, Gravity.TOP | Gravity.LEFT, x, y); animate(frame);
     }
 
     private void showNoteDetail(AnnotationResolver.ResolvedNote resolved) {
+        if (bodyView != null) bodyView.setActiveRange(resolved.start, resolved.end);
         JSONObject note = resolved.note;
         LinearLayout box = column(); box.setPadding(dp(24), dp(14), dp(24), dp(22));
         box.addView(text(note.optString("meaning"), 22, INK, true));
@@ -706,14 +716,42 @@ public class ReadingActivity extends BaseActivity {
         String source = note.optString("source", "本软件参考整理；教材注释请以所用版本为准。");
         margin(box, text(source, 12, MUTED, false), 18);
         ScrollView wrapper = new ScrollView(this); wrapper.addView(box);
-        new AlertDialog.Builder(this).setTitle(note.optString("quote")).setView(wrapper).setPositiveButton("关闭", null).show();
+        AlertDialog detail = dialogBuilder().setTitle(note.optString("quote")).setView(wrapper).setPositiveButton("关闭", null).create();
+        detail.setOnDismissListener(window -> clearActiveRange()); detail.show();
     }
 
     private void toggleReview(String key, JSONObject card) {
         if (store.hasReview(key)) store.removeReview(key); else store.saveReview(card);
     }
 
-    private void dismissBubble() { if (bubble != null) { bubble.dismiss(); bubble = null; } }
+    private void clearActiveRange() { if (bodyView != null) bodyView.clearActiveRange(); }
+    private void dismissBubble() {
+        if (bubble != null) { PopupWindow previous = bubble; bubble = null; previous.setOnDismissListener(null); previous.dismiss(); }
+        clearActiveRange();
+    }
+
+    private static final class TranslationRange {
+        final String quote, translation; final int start, end;
+        TranslationRange(String quote, String translation, int start) {
+            this.quote = quote; this.translation = translation; this.start = start; this.end = start + quote.length();
+        }
+    }
+
+    private TranslationRange translationAt(int offset) {
+        JSONArray translations = article.optJSONArray("translations");
+        String body = article.optString("body"); int cursor = 0;
+        if (translations != null) for (int i = 0; i < translations.length(); i++) {
+            JSONObject unit = translations.optJSONObject(i); if (unit == null) continue;
+            String quote = unit.optString("quote"), translated = unit.optString("translation");
+            if (quote.isEmpty() || translated.isEmpty()) continue;
+            int start = body.indexOf(quote, cursor);
+            if (start < 0) start = body.indexOf(quote);
+            if (start < 0) continue;
+            cursor = start + quote.length();
+            if (offset >= start && offset < cursor) return new TranslationRange(quote, translated, start);
+        }
+        return null;
+    }
 
     private String sentenceAt(int offset) {
         String body = article.optString("body"); int start = Math.max(0, Math.min(offset, body.length())), end = start;
