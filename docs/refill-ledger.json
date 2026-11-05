@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "batches": {
+    "modern:42033714183": {
+      "module": "modern",
+      "batchId": "42033714183",
+      "targetCount": 30,
+      "status": "reserved",
+      "reservedAt": "2026-11-05T13:12:39.223Z",
+      "maximumCalls": 60,
+      "maximumOutputTokensPerCall": 8192,
+      "attempts": [],
+      "addedIds": []
+    }
+  }
+}
