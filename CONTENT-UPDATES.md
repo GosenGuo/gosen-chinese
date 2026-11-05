@@ -11,7 +11,9 @@
     node scripts/build-content-feed.mjs
     node scripts/validate-content-feed.mjs
 
-构建将内置古诗文、阅读题与作文合成 docs/library.json，保留此前已经发布的新增内容。每次实际重建递增 contentVersion，记录 generatedAt 与适用的 bundleVersionCode。修改内置内容或APK版本后需要重新构建一次。
+构建将内置古诗文、阅读题与作文合成 docs/library.json，保留此前已经发布的新增内容。每次实际重建递增 contentVersion，记录 generatedAt 与适用的 bundleVersionCode。修改内置内容后需要重新构建。
+
+仅修改界面的APK沿用 release/version.json 中的 bundledContentVersionCode，不会把已有内容包误判为旧版；修改内置内容时，将该字段提升到对应的 versionCode 并重新构建内容包。
 
 ## 按需补充方案
 

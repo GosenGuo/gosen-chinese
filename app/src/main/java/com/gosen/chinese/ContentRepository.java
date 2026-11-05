@@ -35,10 +35,11 @@ public final class ContentRepository {
     private String catalogNote="";
     private int contentVersion=0;
     private boolean checking,closed;
+    private final List<UpdateCallback> pendingCallbacks=new ArrayList<>();
 
     public ContentRepository(Context context) { this(context,BuildConfig.CONTENT_FEED_URL,ContentFeedSync::download); }
     ContentRepository(Context context,String feedUrl,ContentFeedSync.Fetcher fetcher) {
-        this(context,feedUrl,fetcher,BuildConfig.VERSION_CODE);
+        this(context,feedUrl,fetcher,BuildConfig.BUNDLED_CONTENT_VERSION_CODE);
     }
     ContentRepository(Context context,String feedUrl,ContentFeedSync.Fetcher fetcher,int bundledVersionCode) {
         this.feedUrl=feedUrl;this.fetcher=fetcher;this.bundledVersionCode=bundledVersionCode;
@@ -87,7 +88,9 @@ public final class ContentRepository {
 
     public void checkForUpdates(UpdateCallback callback) {
         synchronized(this) {
-            if(closed||checking){deliver(callback,false,false);return;}
+            if(closed)return;
+            if(callback!=null)pendingCallbacks.add(callback);
+            if(checking)return;
             checking=true;
         }
         try {
@@ -106,10 +109,15 @@ public final class ContentRepository {
                     }
                 } catch(Exception ignored) {
                     // Network, validation or disk failure leaves the previous library untouched.
-                } finally {synchronized(this){checking=false;}}
-                deliver(callback,success,changed);
+                } finally {finishCheck(success,changed);}
             });
-        } catch(RejectedExecutionException ignored) {synchronized(this){checking=false;}deliver(callback,false,false);}
+        } catch(RejectedExecutionException ignored) {finishCheck(false,false);}
+    }
+
+    private void finishCheck(boolean success,boolean changed){
+        List<UpdateCallback> callbacks;
+        synchronized(this){checking=false;callbacks=new ArrayList<>(pendingCallbacks);pendingCallbacks.clear();}
+        for(UpdateCallback callback:callbacks)deliver(callback,success,changed);
     }
 
     private synchronized boolean apply(JSONObject incoming,boolean persist) throws Exception {
@@ -145,7 +153,7 @@ public final class ContentRepository {
         return changed;
     }
 
-    public synchronized void close(){closed=true;worker.shutdownNow();}
+    public synchronized void close(){closed=true;pendingCallbacks.clear();worker.shutdownNow();}
     private void deliver(UpdateCallback callback,boolean success,boolean changed) {
         if(callback!=null)main.post(()->{synchronized(ContentRepository.this){if(closed)return;}callback.onComplete(success,changed);});
     }

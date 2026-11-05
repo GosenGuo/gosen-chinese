@@ -17,7 +17,7 @@ export function buildFeed(projectRoot=root,now=new Date()){
       merged.set(cloned.id,cloned);
     }
   }
-  const feed={schemaVersion:1,contentVersion:(previous?.contentVersion||0)+1,bundleVersionCode:version.versionCode,generatedAt:now.toISOString(),catalog,items:[...merged.values()]};
+  const feed={schemaVersion:1,contentVersion:(previous?.contentVersion||0)+1,bundleVersionCode:version.bundledContentVersionCode??version.versionCode,generatedAt:now.toISOString(),catalog,items:[...merged.values()]};
   validateFeed(feed);fs.mkdirSync(path.dirname(output),{recursive:true});fs.writeFileSync(output,JSON.stringify(feed,null,2)+'\n');
   return feed;
 }

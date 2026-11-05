@@ -129,4 +129,16 @@ public class ContentRepositoryTest {
         repository.checkForUpdates((ok,changed)->callbacks.incrementAndGet());assertTrue(entered.await(2,TimeUnit.SECONDS));
         repository.close();release.countDown();Thread.sleep(20);shadowOf(Looper.getMainLooper()).idle();assertEquals(0,callbacks.get());
     }
+    @Test public void manualRefreshJoinsTheAutomaticRefreshAndReceivesItsResult()throws Exception{
+        ContentRepository seed=repo(url->{throw new IllegalStateException();});String data=feed(seed,2,3).toString();
+        CountDownLatch entered=new CountDownLatch(1),release=new CountDownLatch(1);AtomicInteger calls=new AtomicInteger();
+        ContentRepository repository=repo(url->{calls.incrementAndGet();entered.countDown();release.await();return data;});
+        List<String> results=new ArrayList<>();
+        repository.checkForUpdates((ok,changed)->results.add(ok+":"+changed));
+        assertTrue(entered.await(2,TimeUnit.SECONDS));
+        repository.checkForUpdates((ok,changed)->results.add(ok+":"+changed));
+        release.countDown();long deadline=System.currentTimeMillis()+10000;
+        while(results.size()<2&&System.currentTimeMillis()<deadline){shadowOf(Looper.getMainLooper()).idle();Thread.sleep(10);}
+        assertEquals(java.util.Arrays.asList("true:false","true:false"),results);assertEquals(1,calls.get());
+    }
 }

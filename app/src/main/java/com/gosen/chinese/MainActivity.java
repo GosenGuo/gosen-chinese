@@ -26,6 +26,7 @@ public class MainActivity extends BaseActivity {
     private ContentRefillManager refill;
     private boolean initialized;
     private boolean resumed;
+    private boolean manualRefreshInProgress;
     private LinearLayout libraryList;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final Runnable contentPoll = new Runnable() {
@@ -159,6 +160,8 @@ public class MainActivity extends BaseActivity {
     }
     private void library(){
         screen("library");heading("篇库","");
+        Button refresh=button(manualRefreshInProgress?"正在刷新…":"刷新最新文章",false,this::refreshArticles);
+        refresh.setTag("refreshArticles");refresh.setEnabled(!manualRefreshInProgress);content.addView(refresh);gap(14);
         HorizontalScrollView horizontal=new HorizontalScrollView(this);horizontal.setHorizontalScrollBarEnabled(false);LinearLayout tabs=row();
         for(String key:new String[]{"classics","modern","classical","essay"})
             smallButton(tabs,moduleName(key),module.equals(key),()->{module=key;filter="";library();});
@@ -169,6 +172,21 @@ public class MainActivity extends BaseActivity {
         }
         LinearLayout list=column();libraryList=list;content.addView(list);populate(list);
         search.addTextChangedListener(watcher(value->{filter=value;populate(list);}));
+    }
+    private void refreshArticles(){
+        if(manualRefreshInProgress)return;
+        manualRefreshInProgress=true;View refresh=content.findViewWithTag("refreshArticles");
+        if(refresh instanceof Button){((Button)refresh).setText("正在刷新…");refresh.setEnabled(false);}
+        repository.checkForUpdates((success,changed)->{
+            manualRefreshInProgress=false;
+            if(isFinishing()||isDestroyed())return;
+            View current=content.findViewWithTag("refreshArticles");
+            if(current instanceof Button){((Button)current).setText("刷新最新文章");current.setEnabled(true);}
+            if(changed)refreshContentViews();
+            if(success&&refill!=null)refill.checkInventory(repository,store);
+            info(success?"刷新完成":"刷新失败",success?(changed?"已同步最新文章和题库。":"文章和题库已是最新。"):
+                    "暂时无法获取最新文章，请检查网络后重试。已有内容仍可使用。");
+        });
     }
     private void populate(LinearLayout list){
         list.removeAllViews();String previous="";int count=0;

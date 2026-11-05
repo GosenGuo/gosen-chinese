@@ -13,6 +13,7 @@ android {
         targetSdk 35
         versionCode Integer.parseInt(project.findProperty('VERSION_CODE') ?: releaseVersion.versionCode.toString())
         versionName project.findProperty('VERSION_NAME') ?: releaseVersion.versionName
+        buildConfigField 'int', 'BUNDLED_CONTENT_VERSION_CODE', (releaseVersion.bundledContentVersionCode ?: releaseVersion.versionCode).toString()
         buildConfigField 'String', 'UPDATE_MANIFEST_URL', '"' + (project.findProperty('UPDATE_MANIFEST_URL') ?: 'https://gosenguo.github.io/gosen-chinese/app-update.json') + '"'
         buildConfigField 'String', 'CONTENT_FEED_URL', '"' + (project.findProperty('CONTENT_FEED_URL') ?: 'https://gosenguo.github.io/gosen-chinese/library.json') + '"'
         buildConfigField 'String', 'CONTENT_REFILL_URL', '"' + refillUrl + '"'

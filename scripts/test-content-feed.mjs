@@ -33,7 +33,7 @@ test('feed builds preserve remotely added daily IDs while replacing bundled anno
   const tempRoot=path.join(root,'generated','feed-test-'+Date.now()+'-'+Math.random().toString(16).slice(2));
   await fsp.mkdir(path.join(tempRoot,'app/src/main/assets'),{recursive:true});await fsp.mkdir(path.join(tempRoot,'release'),{recursive:true});
   for(const name of ['classics','practice','essays'])await fsp.copyFile(path.join(root,'app/src/main/assets',name+'.json'),path.join(tempRoot,'app/src/main/assets',name+'.json'));
-  await fsp.writeFile(path.join(tempRoot,'release/version.json'),JSON.stringify({versionCode:3}));
+  await fsp.writeFile(path.join(tempRoot,'release/version.json'),JSON.stringify({versionCode:4,bundledContentVersionCode:3}));
   try{
     const first=buildFeed(tempRoot,new Date('2026-11-05T00:00:00Z'));const addition=structuredClone(first.items.find(item=>item.module==='modern'));addition.id='daily-modern-test';first.items.push(addition);
     await fsp.writeFile(path.join(tempRoot,'docs/library.json'),JSON.stringify(first));

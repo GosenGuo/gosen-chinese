@@ -1,5 +1,6 @@
 {
-  "versionCode": 3,
-  "versionName": "0.2.0",
-  "releaseNotes": "新增每日现代文、文言文和作文任务，适配深色模式；古诗文按教材顺序排列，支持单字释义和原文标记。各类未读少于5篇时自动补充内容。"
+  "versionCode": 4,
+  "versionName": "0.2.1",
+  "bundledContentVersionCode": 3,
+  "releaseNotes": "篇库新增刷新最新文章按钮，刷新完成后显示结果；保留自动同步和学习记录。"
 }
