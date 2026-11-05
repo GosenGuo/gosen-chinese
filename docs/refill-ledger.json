@@ -598,6 +598,17 @@
       "completedAt": "2026-11-05T13:41:16.961Z",
       "acceptedCount": 30,
       "attemptedCount": 33
+    },
+    "classical:42038015527": {
+      "module": "classical",
+      "batchId": "42038015527",
+      "targetCount": 30,
+      "status": "reserved",
+      "reservedAt": "2026-11-05T13:41:57.196Z",
+      "maximumCalls": 60,
+      "maximumOutputTokensPerCall": 8192,
+      "attempts": [],
+      "addedIds": []
     }
   }
 }
