@@ -11,7 +11,7 @@ android {
         targetSdk 35
         versionCode Integer.parseInt(project.findProperty('VERSION_CODE') ?: releaseVersion.versionCode.toString())
         versionName project.findProperty('VERSION_NAME') ?: releaseVersion.versionName
-        buildConfigField 'String', 'UPDATE_MANIFEST_URL', '"' + (project.findProperty('UPDATE_MANIFEST_URL') ?: 'https://raw.githubusercontent.com/GosenGuo/gosen-chinese/main/release/app-update.json') + '"'
+        buildConfigField 'String', 'UPDATE_MANIFEST_URL', '"' + (project.findProperty('UPDATE_MANIFEST_URL') ?: 'https://gosenguo.github.io/gosen-chinese/app-update.json') + '"'
     }
     buildFeatures { buildConfig true }
     signingConfigs {

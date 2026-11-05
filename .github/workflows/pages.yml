@@ -1,0 +1,42 @@
+name: Publish mobile updates
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ['Signed Android release', 'Auto content update']
+    types: [completed]
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: mobile-update-pages
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/configure-pages@v5
+      - name: Verify publication and download the signed release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node --test scripts/prepare-pages.test.mjs
+          version=$(node -p 'JSON.parse(require("fs").readFileSync("release/app-update.json","utf8")).versionName')
+          gh release download "app-v$version" --pattern "GosenChinese-$version.apk" --dir release-assets
+          node scripts/prepare-pages.mjs --apk "release-assets/GosenChinese-$version.apk" --out pages-dist
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: pages-dist
+      - name: Publish the mobile update endpoint
+        id: deployment
+        uses: actions/deploy-pages@v4

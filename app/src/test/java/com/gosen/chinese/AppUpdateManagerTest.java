@@ -18,6 +18,13 @@ import org.robolectric.annotation.Config;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.*;
+import java.util.concurrent.AbstractExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import org.robolectric.shadows.ShadowAlertDialog;
+import org.robolectric.shadows.ShadowToast;
 import static org.junit.Assert.*;
 
 @RunWith(RobolectricTestRunner.class)
@@ -87,5 +94,103 @@ public class AppUpdateManagerTest {
         Uri traversal=Uri.parse("content://com.gosen.chinese.apk-files/..%2Fprivate.apk");
         assertThrows(IllegalArgumentException.class,()->provider.query(traversal,null,null,null,null));
         assertThrows(java.io.FileNotFoundException.class,()->provider.openFile(Uri.parse("content://com.gosen.chinese.apk-files/update.apk"),"w"));
+    }
+    @Test public void unavailablePagesRouteFallsBackToRawManifest() throws Exception {
+        List<String> calls=new ArrayList<>();
+        AppUpdateManager.UpdateInfo result=UpdateSources.load(UpdateSources.PAGES,"com.gosen.chinese",url->{
+            calls.add(url);
+            if(url.equals(UpdateSources.PAGES))throw new java.net.SocketTimeoutException();
+            return manifest();
+        });
+        assertEquals(2,result.versionCode);
+        assertEquals(Arrays.asList(UpdateSources.PAGES,UpdateSources.RAW),calls);
+    }
+    @Test public void invalidPrimaryManifestCannotDisableValidBackup() throws Exception {
+        AtomicInteger calls=new AtomicInteger();
+        AppUpdateManager.UpdateInfo result=UpdateSources.load(UpdateSources.PAGES,"com.gosen.chinese",url->{
+            calls.incrementAndGet();return url.equals(UpdateSources.PAGES)?manifest().put("sha256",""):manifest();
+        });
+        assertEquals(2,result.versionCode);assertEquals(2,calls.get());
+    }
+    @Test public void githubReleaseAssetIsAnIndependentThirdRoute() throws Exception {
+        List<String> calls=new ArrayList<>();
+        String asset="https://github.com/GosenGuo/gosen-chinese/releases/download/app-v0.1.1/app-update.json";
+        AppUpdateManager.UpdateInfo result=UpdateSources.load(UpdateSources.PAGES,"com.gosen.chinese",url->{
+            calls.add(url);
+            if(url.equals(UpdateSources.RELEASES))return new JSONObject().put("assets",
+                    new org.json.JSONArray().put(new JSONObject().put("name","app-update.json").put("browser_download_url",asset)));
+            if(url.equals(asset))return manifest();
+            throw new java.io.IOException("route unavailable");
+        });
+        assertEquals(2,result.versionCode);
+        assertEquals(Arrays.asList(UpdateSources.PAGES,UpdateSources.RAW,UpdateSources.RELEASES,asset),calls);
+    }
+    @Test public void allRoutesFailRatherThanClaimingCachedVersionIsLatest() {
+        assertThrows(IllegalStateException.class,()->UpdateSources.load(UpdateSources.PAGES,"com.gosen.chinese",url->{throw new java.io.IOException("offline");}));
+    }
+    @Test public void failedAutomaticCheckRetriesOnLaterForegroundAndManualFailureHasUsefulFeedback() {
+        Activity activity=Robolectric.buildActivity(Activity.class).setup().get();
+        activity.getSharedPreferences(AppUpdateManager.PREFS,Context.MODE_PRIVATE).edit().clear().commit();
+        AtomicInteger calls=new AtomicInteger();AtomicLong now=new AtomicLong(1000);
+        AppUpdateManager manager=new AppUpdateManager(activity,url->{calls.incrementAndGet();throw new java.io.IOException("offline");},new DirectExecutor(),now::get);
+        try{
+            manager.checkForUpdates();int first=calls.get();assertEquals(3,first);
+            manager.checkForUpdates();assertEquals(first,calls.get());
+            now.addAndGet(31_000);manager.checkForUpdates();assertEquals(first*2,calls.get());
+            manager.checkForUpdates(true);
+            assertEquals("暂时连接不上更新服务，下次打开会自动重试",ShadowToast.getTextOfLatestToast());
+        }finally{manager.close();activity.finish();}
+    }
+    @Test public void automaticSuccessIsThrottledUntilNextForegroundWindow() throws Exception {
+        Activity activity=Robolectric.buildActivity(Activity.class).setup().get();
+        activity.getSharedPreferences(AppUpdateManager.PREFS,Context.MODE_PRIVATE).edit().clear().commit();
+        AtomicInteger calls=new AtomicInteger();AtomicLong now=new AtomicLong(1000);
+        AppUpdateManager manager=new AppUpdateManager(activity,url->{
+            calls.incrementAndGet();return manifest().put("packageName",activity.getPackageName()).put("versionCode",BuildConfig.VERSION_CODE);
+        },new DirectExecutor(),now::get);
+        try{
+            manager.checkForUpdates();manager.checkForUpdates();assertEquals(1,calls.get());
+            now.addAndGet(181_000);manager.checkForUpdates();assertEquals(2,calls.get());
+        }finally{manager.close();activity.finish();}
+    }
+    @Test public void automaticBackupResultActuallyOffersNewVersionWithoutASettingsButton() throws Exception {
+        Activity activity=Robolectric.buildActivity(Activity.class).setup().get();
+        activity.getSharedPreferences(AppUpdateManager.PREFS,Context.MODE_PRIVATE).edit().clear().commit();
+        AppUpdateManager manager=new AppUpdateManager(activity,url->{
+            if(url.equals(UpdateSources.PAGES))throw new java.net.SocketTimeoutException();
+            return manifest().put("packageName",activity.getPackageName())
+                    .put("versionCode",BuildConfig.VERSION_CODE+1).put("releaseNotes","自动更新线路修复");
+        },new DirectExecutor(),()->1000L);
+        try{
+            manager.checkForUpdates();
+            android.app.AlertDialog dialog=ShadowAlertDialog.getLatestAlertDialog();
+            assertNotNull(dialog);assertTrue(dialog.isShowing());
+            assertEquals("下载更新",dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).getText().toString());
+            android.widget.TextView message=dialog.findViewById(android.R.id.message);
+            assertEquals("自动更新线路修复",message.getText().toString());
+            dialog.dismiss();
+        }finally{manager.close();activity.finish();}
+    }
+    @Test public void completingARequestAfterCloseCannotDisplayAnUpdateDialog() throws Exception {
+        Activity activity=Robolectric.buildActivity(Activity.class).setup().get();
+        activity.getSharedPreferences(AppUpdateManager.PREFS,Context.MODE_PRIVATE).edit().clear().commit();
+        int existing=ShadowAlertDialog.getShownDialogs().size();
+        AppUpdateManager[] holder=new AppUpdateManager[1];
+        holder[0]=new AppUpdateManager(activity,url->{
+            holder[0].close();
+            return manifest().put("packageName",activity.getPackageName()).put("versionCode",BuildConfig.VERSION_CODE+1);
+        },new DirectExecutor(),()->1000L);
+        holder[0].checkForUpdates();
+        assertEquals(existing,ShadowAlertDialog.getShownDialogs().size());
+        activity.finish();
+    }
+    private static final class DirectExecutor extends AbstractExecutorService {
+        private boolean shutdown;
+        @Override public void shutdown(){shutdown=true;}
+        @Override public List<Runnable> shutdownNow(){shutdown=true;return Collections.emptyList();}
+        @Override public boolean isShutdown(){return shutdown;}
+        @Override public boolean isTerminated(){return shutdown;}
+        @Override public boolean awaitTermination(long timeout,TimeUnit unit){return shutdown;}
+        @Override public void execute(Runnable action){if(shutdown)throw new java.util.concurrent.RejectedExecutionException();action.run();}
     }
 }

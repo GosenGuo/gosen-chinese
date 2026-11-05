@@ -58,6 +58,7 @@ jobs:
           node scripts/check-classics.mjs
           node scripts/validate-practice-content.mjs
           node --test scripts/write-update-manifest.test.mjs
+          node --test scripts/prepare-pages.test.mjs
       - name: Test and build signed release
         shell: bash
         run: |
@@ -86,6 +87,7 @@ jobs:
             exit 1
           fi
           node scripts/write-update-manifest.mjs --apk "release-assets/$apk_name" --certificate-sha256 "$certificate_sha"
+          cp release/app-update.json release-assets/app-update.json
           echo "version_name=$version_name" >> "$GITHUB_OUTPUT"
           echo "apk_name=$apk_name" >> "$GITHUB_OUTPUT"
           node -p 'JSON.parse(require("fs").readFileSync("release/version.json","utf8")).releaseNotes || "拾文更新"' > release-assets/notes.txt
@@ -102,7 +104,7 @@ jobs:
             gh release download "$tag" --pattern "$APK_NAME" --dir "$RUNNER_TEMP/published"
             cmp "release-assets/$APK_NAME" "$RUNNER_TEMP/published/$APK_NAME"
           else
-            gh release create "$tag" "release-assets/$APK_NAME" "release-assets/$APK_NAME.sha256" --target "$GITHUB_SHA" --title "拾文 $VERSION_NAME" --notes-file release-assets/notes.txt
+            gh release create "$tag" "release-assets/$APK_NAME" "release-assets/$APK_NAME.sha256" "release-assets/app-update.json" --target "$GITHUB_SHA" --title "拾文 $VERSION_NAME" --notes-file release-assets/notes.txt
           fi
       - name: Commit published update manifest
         shell: bash

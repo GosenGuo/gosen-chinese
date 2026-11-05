@@ -11,4 +11,5 @@ node_modules/
 generated/
 release-assets/
 qa/
+pages-dist/
 .idea/

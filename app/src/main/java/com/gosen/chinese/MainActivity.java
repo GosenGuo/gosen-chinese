@@ -34,6 +34,7 @@ public class MainActivity extends BaseActivity {
             store=new StudyStore(this);
             int y=scroll.getScrollY();render();scroll.post(()->scroll.scrollTo(0,y));
             updater.resumePendingInstall();
+            updater.checkForUpdates();
         }
     }
     @Override protected void onDestroy(){if(updater!=null)updater.close();super.onDestroy();}
@@ -186,7 +187,7 @@ public class MainActivity extends BaseActivity {
         margin(summary,text("已学 "+store.completedCount()+" 篇  ·  积累 "+store.reviews().size()+" 项",14,MUTED,false),13);content.addView(summary);gap(22);
         settingsRow("正文字号",fontSize()+"",()->chooseFont(this::settings));
         settingsRow("夜间阅读",dark?"已开启":"已关闭",()->{store.putSetting("dark",String.valueOf(!dark));buildShell();navigation=null;settings();});
-        settingsRow("检查软件更新",BuildConfig.VERSION_NAME,()->updater.checkForUpdates(true));
+        settingsRow("软件版本",BuildConfig.VERSION_NAME,null);
         settingsRow("导出学习备份","→",()->startActivityForResult(new Intent(Intent.ACTION_CREATE_DOCUMENT)
                 .setType("application/json").addCategory(Intent.CATEGORY_OPENABLE).putExtra(Intent.EXTRA_TITLE,"拾文学习备份-"+LocalDate.now()+".json"),301));
         settingsRow("导入学习备份","→",()->startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("application/json").addCategory(Intent.CATEGORY_OPENABLE),302));
@@ -194,7 +195,7 @@ public class MainActivity extends BaseActivity {
         gap(28);content.addView(text("拾文 "+BuildConfig.VERSION_NAME+"\n每日有所读，每日有所思。",12,MUTED,false));
     }
     private void settingsRow(String title,String value,Runnable action){
-        LinearLayout row=row();row.setPadding(0,dp(19),0,dp(19));weighted(row,text(title,16,INK,false));row.addView(text(value,13,MUTED,false));row.setOnClickListener(v->action.run());content.addView(row);
+        LinearLayout row=row();row.setPadding(0,dp(19),0,dp(19));weighted(row,text(title,16,INK,false));row.addView(text(value,13,MUTED,false));if(action!=null)row.setOnClickListener(v->action.run());content.addView(row);
         View border=new View(this);border.setBackgroundColor(LINE);content.addView(border,new LinearLayout.LayoutParams(-1,dp(1)));
     }
     @Override protected void onActivityResult(int request,int result,Intent data){

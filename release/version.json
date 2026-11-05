@@ -1,5 +1,5 @@
 {
-  "versionCode": 1,
-  "versionName": "0.1.0",
-  "releaseNotes": "拾文首个试用版本：古诗文点击释义、阅读练习、每日作文与统一复习。"
+  "versionCode": 2,
+  "versionName": "0.1.1",
+  "releaseNotes": "修复手机无法检查更新：改用与英语阅读软件相同的更新服务并加入备用地址。打开应用或返回前台时自动检测新版，保留原有学习记录。"
 }
