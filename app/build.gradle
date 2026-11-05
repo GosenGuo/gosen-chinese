@@ -30,6 +30,11 @@ android {
         }
     }
     buildTypes {
+        debug {
+            // UI and unit tests must never spend the production refill budget.
+            buildConfigField 'String', 'CONTENT_REFILL_URL', '""'
+            buildConfigField 'String', 'CONTENT_REFILL_TOKEN', '""'
+        }
         release {
             minifyEnabled false
             signingConfig signingConfigs.stableRelease

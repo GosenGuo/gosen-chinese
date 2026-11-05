@@ -36,6 +36,10 @@ public class ContentRefillManagerTest {
     private void idle(ContentRefillManager manager)throws Exception{
         long deadline=System.currentTimeMillis()+3000;while(!manager.idle()&&System.currentTimeMillis()<deadline)Thread.sleep(5);assertTrue("refill worker did not finish",manager.idle());
     }
+    @Test public void debugBuildCannotCallTheProductionRefillService(){
+        assertEquals("",BuildConfig.CONTENT_REFILL_URL);
+        assertEquals("",BuildConfig.CONTENT_REFILL_TOKEN);
+    }
     @Test public void unreadFiveDoesNotRequestButFourRequestsThirtyWithTheCorrectModule()throws Exception{
         List<JSONObject> sent=Collections.synchronizedList(new ArrayList<>());
         ContentRefillManager manager=manager((url,token,body)->{assertEquals("finite-shared-token",token);sent.add(new JSONObject(body));return 202;});
